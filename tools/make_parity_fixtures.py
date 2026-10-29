@@ -26,8 +26,26 @@ from docextract.synth_eval import build_cache  # noqa: E402
 from docextract.text import is_money, norm_name, parse_amount, parse_count, similarity, word_shape  # noqa: E402
 
 TEXT_CASES = [
-    "Rp 45.500", "45,500", "12,500.00", "45.50", "2x", "x 3", "(5,000)", "1.234.567", "abc", "100",
-    "Rp45.000", "IDR 1,000", "081234567890123", "TOTAL", "goréng", "Śląsk", "  a  b ", "12:30", "-5.000", "99999",
+    "Rp 45.500",
+    "45,500",
+    "12,500.00",
+    "45.50",
+    "2x",
+    "x 3",
+    "(5,000)",
+    "1.234.567",
+    "abc",
+    "100",
+    "Rp45.000",
+    "IDR 1,000",
+    "081234567890123",
+    "TOTAL",
+    "goréng",
+    "Śląsk",
+    "  a  b ",
+    "12:30",
+    "-5.000",
+    "99999",
 ]
 
 

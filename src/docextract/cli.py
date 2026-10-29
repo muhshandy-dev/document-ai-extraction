@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
@@ -17,8 +18,10 @@ from . import pipeline as P
 from .evaluate import aggregate, bootstrap
 from .model import LinearModel, train
 
-EVAL = P.ROOT / "evaluation"
-MODEL_PATH = P.ROOT / "web" / "public" / "model" / "model-n.json"
+# DOCEXTRACT_OUT redirects outputs (evaluation/, web/public/model, web/public/samples).
+OUT = Path(os.environ.get("DOCEXTRACT_OUT", P.ROOT))
+EVAL = OUT / "evaluation"
+MODEL_PATH = OUT / "web" / "public" / "model" / "model-n.json"
 CONFIG_PATH = EVAL / "config.json"
 
 OCR_GRID = [("eng", 4), ("eng", 6), ("ind", 4), ("ind", 6), ("eng+ind", 4), ("eng+ind", 6)]
@@ -223,7 +226,7 @@ def cmd_export_web(args: argparse.Namespace) -> None:
     from .synth import make_invoice, render_pdf
     from .synth_eval import scan_image
 
-    pub = P.ROOT / "web" / "public"
+    pub = OUT / "web" / "public"
     sdir = pub / "samples"
     sdir.mkdir(parents=True, exist_ok=True)
     samples = []
@@ -282,6 +285,20 @@ def cmd_export_web(args: argparse.Namespace) -> None:
     print("samples:", len(samples), "->", sdir)
 
 
+def cmd_all(args: argparse.Namespace) -> None:
+    """Full protocol in order. The test split is scored once, after every choice is frozen."""
+    ns = argparse.Namespace
+    if not args.skip_download:
+        cmd_download(ns())
+    cmd_select_ocr(ns(workers=args.workers))
+    cmd_ocr(ns(splits=["train", "validation", "test"], workers=args.workers))
+    cmd_train(ns())
+    cmd_evaluate(ns(split="validation", n_boot=args.n_boot))
+    cmd_evaluate(ns(split="test", n_boot=args.n_boot))
+    cmd_synth(ns(start=1000, n=args.n_synth, n_boot=args.n_boot))
+    cmd_export_web(ns(n_synth=3, n_cord=4, cord=True))
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="docextract")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -308,6 +325,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--n-cord", type=int, default=4)
     p.add_argument("--no-cord", dest="cord", action="store_false")
     p.set_defaults(fn=cmd_export_web)
+    p = sub.add_parser("all")
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--n-boot", type=int, default=2000)
+    p.add_argument("--n-synth", type=int, default=200)
+    p.add_argument("--skip-download", action="store_true")
+    p.set_defaults(fn=cmd_all)
     args = ap.parse_args(argv)
     args.fn(args)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 from pathlib import Path
 
 from .assemble import assemble
@@ -17,7 +18,8 @@ from .ocr import align_labels, ocr_image, word_recall
 from .schema import ExtractedDocument, validate_document
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
+# DOCEXTRACT_DATA moves downloads and caches (used by the offline test on a fake CORD set).
+DATA = Path(os.environ.get("DOCEXTRACT_DATA", ROOT / "data"))
 CORD_DIR = DATA / "cord"
 CACHE = DATA / "cache"
 TESSDATA_GZ = ROOT / "web" / "public" / "tessdata"
@@ -100,7 +102,7 @@ def cache_ocr(split: str, lang: str, psm: int, workers: int = 4, limit: int | No
             break
         if not (out_dir / f"{s.doc_id}.json").exists():
             jobs.append((s.doc_id, s.image_bytes, lang, psm, str(TESSDATA)))
-    with ProcessPoolExecutor(max_workers=workers) as ex:
+    with ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn")) as ex:
         for doc_id, words in ex.map(_ocr_job, jobs, chunksize=2):
             (out_dir / f"{doc_id}.json").write_text(json.dumps(words))
     return out_dir

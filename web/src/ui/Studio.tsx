@@ -51,6 +51,7 @@ export function Studio({ samples, model }: Props) {
   const [showBoxes, setShowBoxes] = useState(true);
   const [highlight, setHighlight] = useState<Set<number>>(new Set());
   const [progress, setProgress] = useState<{ p: number; status: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const running = useRef(false);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export function Studio({ samples, model }: Props) {
     async (doc: QueueDoc) => {
       if (running.current) return;
       running.current = true;
+      setBusy(true);
       patch(doc.id, { state: "running", error: undefined });
       setProgress({ p: 0, status: "memuat" });
       try {
@@ -105,6 +107,7 @@ export function Studio({ samples, model }: Props) {
         patch(doc.id, { state: "error", error: e instanceof Error ? e.message : String(e) });
       } finally {
         running.current = false;
+        setBusy(false);
         setProgress(null);
       }
     },
@@ -114,8 +117,9 @@ export function Studio({ samples, model }: Props) {
   const current = docs.find((d) => d.id === selected);
 
   useEffect(() => {
-    if (current && current.state === "idle") void process(current);
-  }, [current, process]);
+    // re-checked when a running job finishes, so a document picked meanwhile starts next
+    if (current && current.state === "idle" && !busy) void process(current);
+  }, [current, process, busy]);
 
   const onFile = (file: File) => {
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");

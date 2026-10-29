@@ -89,7 +89,11 @@ function MainTable({ res, runs, labels }: { res: Results; runs: string[]; labels
               ))}
               {diff && (
                 <td className="num">
-                  {signed((res.summary[runs[1]]?.[m] as number) - (res.summary[runs[0]]?.[m] as number))}
+                  {(() => {
+                    const a = res.summary[runs[0]]?.[m];
+                    const b = res.summary[runs[1]]?.[m];
+                    return typeof a === "number" && typeof b === "number" ? signed(b - a) : "-";
+                  })()}
                   {diff[m] && diff[m][0] !== null && (
                     <span className="muted" style={{ fontSize: 12 }}>
                       {" "}
@@ -249,9 +253,11 @@ export function Evaluation() {
           <h2>Faktur sintetis (di luar domain latih)</h2>
           <p>
             Model dilatih hanya dengan struk CORD. Faktur sintetis ini memakai tata letak yang tidak pernah dilihat model.
-            Baris pertama tabel memakai OCR atas hasil pindai tiruan; tabel kedua memakai lapisan teks PDF.
+            Aturan H dikembangkan dengan faktur sintetis lain (seed 0-99), jadi angkanya cenderung optimistis.
           </p>
+          <h3>Teks dari OCR atas pindaian tiruan</h3>
           <MainTable res={synth} runs={["H-ocr", "N-ocr"]} labels={L} />
+          <h3>Teks dari lapisan teks PDF</h3>
           <MainTable res={synth} runs={["H-pdf", "N-pdf"]} labels={L} />
         </section>
       )}

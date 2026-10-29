@@ -909,3 +909,8 @@ table.data caption {
     transition: none !important;
   }
 }
+
+.doc-page h3 {
+  font-size: 15px;
+  margin: 12px 0 6px;
+}
