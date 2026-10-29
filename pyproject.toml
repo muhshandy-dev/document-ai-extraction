@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "document-ai-extraction"
+version = "0.1.0"
+description = "Ekstraksi field dan tabel dari struk/faktur: heuristik vs OCR + NLP terlatih"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "pydantic>=2.6",
+  "pytesseract>=0.3.10",
+  "pillow>=10",
+  "pyarrow>=15",
+  "numpy>=1.26",
+  "scikit-learn>=1.4",
+  "reportlab>=4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+docextract = "docextract.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
