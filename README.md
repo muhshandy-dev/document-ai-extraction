@@ -7,7 +7,7 @@ Studio peninjauan struk dan faktur. Teks dibaca dengan OCR (atau lapisan teks PD
 
 Hasil divalidasi dengan skema Pydantic (padanannya di browser) dan aturan konsistensi. Dokumen yang gagal validasi atau keyakinannya rendah dikirim ke peninjau manusia.
 
-> **Status (29 Oktober 2026):** kode, tes, dan studio web selesai dan teruji. **Evaluasi pada CORD-v2 belum dijalankan**, jadi belum ada angka field-F1, table accuracy, atau review rate untuk data nyata. Model N belum dilatih dan belum disertakan di situs. Lihat [Menjalankan evaluasi](#menjalankan-evaluasi).
+> **Status (30 Oktober 2026):** kode, tes, dan studio web selesai dan teruji. Evaluasi CORD-v2 dijalankan sekali oleh workflow **Evaluasi CORD**; selama hasilnya belum ada di `evaluation/`, belum ada angka yang boleh dikutip.
 
 ## Isi repositori
 

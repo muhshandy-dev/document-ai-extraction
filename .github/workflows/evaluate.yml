@@ -36,6 +36,7 @@ jobs:
         shell: bash
         run: mkdir -p evaluation && docextract all --workers 4 --n-boot 2000 --n-synth 200 2>&1 | tee evaluation/run-log.txt
       - name: Catat lingkungan
+        if: always()
         run: |
           {
             echo "run_id: ${{ github.run_id }}"
@@ -47,6 +48,7 @@ jobs:
             sha256sum data/cord/*.parquet
           } > evaluation/environment.txt
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: evaluasi-${{ github.run_id }}
           path: |

@@ -165,9 +165,8 @@ def iter_split(data_dir: Path, split: str) -> Iterator[CordSample]:
             mw, mh = meta.get("width", width), meta.get("height", height)
             sx, sy = width / mw if mw else 1.0, height / mh if mh else 1.0
             doc, alts = gt_document(gt.get("gt_parse", {}))
-            image_id = gt.get("meta", {}).get("image_id", idx)
             yield CordSample(
-                doc_id=f"{split}-{image_id:04d}" if isinstance(image_id, int) else f"{split}-{idx:04d}",
+                doc_id=f"{split}-{idx:04d}",  # row order in the parquet files, stable across runs
                 split=split,
                 image_bytes=img_bytes,
                 width=width,
