@@ -1,7 +1,8 @@
-# Full benchmark on CORD-v2. Run manually once; results are pushed to a new
-# branch eval/run-<id> for review in a pull request. The test split is scored
-# once inside `docextract all`, after OCR settings, C and the review threshold
-# are frozen on the validation split.
+# Full benchmark on CORD-v2. Starts either manually (results go to a new branch
+# eval/run-<id>) or from a push to a claude/** branch whose commit message
+# contains [jalankan-evaluasi] (results are committed back to that branch).
+# The test split is scored once inside `docextract all`, after OCR settings,
+# C and the review threshold are frozen on the validation split.
 name: Evaluasi CORD
 
 on:
@@ -10,13 +11,17 @@ on:
       konfirmasi:
         description: "Ketik JALANKAN untuk memulai (split uji hanya boleh dipakai sekali)"
         required: true
+  push:
+    branches: ["claude/**"]
 
 permissions:
   contents: write
 
 jobs:
   evaluate:
-    if: github.event.inputs.konfirmasi == 'JALANKAN'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.konfirmasi == 'JALANKAN') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[jalankan-evaluasi]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -49,11 +54,11 @@ jobs:
             web/public/model/
             web/public/data/
             web/public/samples/
-      - name: Push hasil ke cabang baru
+      - name: Simpan hasil ke git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b eval/run-${{ github.run_id }}
+          if [ "${{ github.event_name }}" = "push" ]; then target="${{ github.ref_name }}"; else target="eval/run-${{ github.run_id }}"; git checkout -b "$target"; fi
           git add evaluation web/public/model web/public/data web/public/samples
           git commit -m "Hasil evaluasi CORD (run ${{ github.run_id }})"
-          git push origin eval/run-${{ github.run_id }}
+          git push origin "HEAD:$target"
