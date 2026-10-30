@@ -84,7 +84,14 @@ function MainTable({ res, runs, labels }: { res: Results; runs: string[]; labels
               {runs.map((r) => (
                 <td key={r} className="num">
                   {fmtPct(res.summary[r]?.[m] as number | null)}
-                  <Ci ci={res.bootstrap.ci[r]?.[m]} />
+                  {m === "auto_accept_accuracy" ? (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {" "}
+                      dari {res.summary[r]?.auto_accepted ?? 0} dok.
+                    </span>
+                  ) : (
+                    <Ci ci={res.bootstrap.ci[r]?.[m]} />
+                  )}
                 </td>
               ))}
               {diff && (
@@ -92,9 +99,10 @@ function MainTable({ res, runs, labels }: { res: Results; runs: string[]; labels
                   {(() => {
                     const a = res.summary[runs[0]]?.[m];
                     const b = res.summary[runs[1]]?.[m];
+                    if (m === "auto_accept_accuracy") return "-";
                     return typeof a === "number" && typeof b === "number" ? signed(b - a) : "-";
                   })()}
-                  {diff[m] && diff[m][0] !== null && (
+                  {m !== "auto_accept_accuracy" && diff[m] && diff[m][0] !== null && (
                     <span className="muted" style={{ fontSize: 12 }}>
                       {" "}
                       [{signed(diff[m][0])}, {signed(diff[m][1])}]
@@ -108,7 +116,8 @@ function MainTable({ res, runs, labels }: { res: Results; runs: string[]; labels
         <caption>
           {res.summary[runs[0]]?.n_docs} dokumen. Angka dalam kurung siku = selang kepercayaan 95% dari bootstrap per
           dokumen ({res.bootstrap.n_boot} kali). Selisih memakai bootstrap berpasangan; jika selangnya memuat 0, bedanya
-          belum meyakinkan.
+          belum meyakinkan. Akurasi yang lolos otomatis ditampilkan dengan jumlah dokumennya, tanpa selang, karena
+          jumlahnya bisa sangat kecil.
         </caption>
       </table>
     </div>
@@ -151,6 +160,31 @@ function FieldBars({ res, a, b, la, lb }: { res: Results; a: string; b: string; 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Conclusion({ res }: { res: Results }) {
+  const S = res.summary;
+  const d = res.bootstrap.diff["N-ocr - H-ocr"];
+  const sig = (k: string) => {
+    const c = d?.[k];
+    return c && c[0] !== null && (c[0] > 0 || c[1] < 0);
+  };
+  const v = (r: string, m: string) => S[r]?.[m] as number | null;
+  const gap = (v("N-gt", "field_micro_f1") ?? 0) - (v("N-ocr", "field_micro_f1") ?? 0);
+  return (
+    <div className="callout">
+      <strong>Kesimpulan.</strong>{" "}
+      {sig("field_micro_f1") ? "Model N lebih baik dari aturan H secara meyakinkan" : "Model N belum terbukti lebih baik dari aturan H"}{" "}
+      untuk field ringkasan ({fmtPct(v("N-ocr", "field_micro_f1"))} lawan {fmtPct(v("H-ocr", "field_micro_f1"))}, selisih{" "}
+      [{signed(d?.field_micro_f1?.[0])}, {signed(d?.field_micro_f1?.[1])}] poin).{" "}
+      {sig("row_f1") ? "Untuk baris tabel, bedanya juga meyakinkan" : "Untuk baris tabel, bedanya belum meyakinkan"} (
+      {fmtPct(v("N-ocr", "row_f1"))} lawan {fmtPct(v("H-ocr", "row_f1"))}). Hambatan terbesar adalah OCR: dengan teks
+      benar, model yang sama mencapai {fmtPct(v("N-gt", "field_micro_f1"))}, atau {signed(gap)} poin lebih tinggi. Karena
+      hasil OCR pada foto struk sering salah, model mengirim {fmtPct(v("N-ocr", "review_rate"), 0)} dokumen ke peninjau,
+      sedangkan aturan H meloloskan {S["H-ocr"]?.auto_accepted ?? 0} dokumen yang hanya{" "}
+      {fmtPct(v("H-ocr", "auto_accept_accuracy"), 0)} di antaranya benar. Lolos validasi skema saja tidak menjamin benar.
     </div>
   );
 }
@@ -204,6 +238,7 @@ export function Evaluation() {
               dari anotasi dataset sebagai batas atas: selisihnya dengan kolom OCR menunjukkan berapa banyak kesalahan
               yang berasal dari OCR, bukan dari ekstraksi.
             </p>
+            <Conclusion res={test} />
             <MainTable res={test} runs={["H-ocr", "N-ocr", "H-gt", "N-gt"]} labels={L} />
           </section>
           <section>
@@ -253,7 +288,10 @@ export function Evaluation() {
           <h2>Faktur sintetis (di luar domain latih)</h2>
           <p>
             Model dilatih hanya dengan struk CORD. Faktur sintetis ini memakai tata letak yang tidak pernah dilihat model.
-            Aturan H dikembangkan dengan faktur sintetis lain (seed 0-99), jadi angkanya cenderung optimistis.
+            Aturan H dikembangkan dengan faktur sintetis lain (seed 0-99), jadi angkanya cenderung optimistis. Pada faktur
+            ini model N tetap membaca angka ringkasan dengan baik, tetapi baris tabelnya hampir selalu salah: nama barang
+            di faktur ditulis dengan huruf kecil dan panjang, berbeda dari nama menu di struk CORD, sehingga model memotong
+            nama barang di tempat yang salah. Untuk faktur seperti ini, aturan H adalah pilihan yang lebih tepat.
           </p>
           <h3>Teks dari OCR atas pindaian tiruan</h3>
           <MainTable res={synth} runs={["H-ocr", "N-ocr"]} labels={L} />

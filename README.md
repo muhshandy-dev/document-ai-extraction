@@ -7,7 +7,21 @@ Studio peninjauan struk dan faktur. Teks dibaca dengan OCR (atau lapisan teks PD
 
 Hasil divalidasi dengan skema Pydantic (padanannya di browser) dan aturan konsistensi. Dokumen yang gagal validasi atau keyakinannya rendah dikirim ke peninjau manusia.
 
-> **Status (30 Oktober 2026):** kode, tes, dan studio web selesai dan teruji. Evaluasi CORD-v2 dijalankan sekali oleh workflow **Evaluasi CORD**; selama hasilnya belum ada di `evaluation/`, belum ada angka yang boleh dikutip.
+> **Status (30 Oktober 2026):** kode, tes, dan studio web selesai dan teruji. Evaluasi CORD-v2 sudah dijalankan sekali (GitHub Actions run 41080343691); hasil lengkap di [docs/HASIL.md](docs/HASIL.md). Situs belum dideploy.
+
+## Hasil singkat
+
+Split uji CORD-v2, 100 foto struk, OCR Tesseract. Angka dalam kurung = selang kepercayaan 95%.
+
+| | H (aturan) | N (model) | N dengan teks benar (batas atas) |
+| --- | --- | --- | --- |
+| Field-F1 mikro | 40,3 (32,4 s.d. 47,8) | 49,1 (40,4 s.d. 57,3) | 94,1 (91,0 s.d. 96,6) |
+| F1 baris tabel | 22,6 (15,5 s.d. 30,2) | 25,8 (18,6 s.d. 33,6) | 70,3 (59,9 s.d. 79,7) |
+| Dikirim ke peninjau | 85,0 | 99,0 | 86,0 |
+
+- N lebih baik dari H untuk field ringkasan secara meyakinkan (+8,8 poin, selang +4,1 s.d. +13,7). Untuk baris tabel bedanya belum meyakinkan.
+- Hambatan terbesar adalah OCR: hanya 43% kata pada foto struk terbaca persis. Dengan teks benar, model yang sama mencapai 94,1.
+- Pada faktur sintetis (di luar domain latih), H jauh lebih baik untuk tabel (F1 baris 94,5 lawan 15,3).
 
 ## Isi repositori
 
@@ -16,8 +30,8 @@ Hasil divalidasi dengan skema Pydantic (padanannya di browser) dan aturan konsis
 | `src/docextract/` | Paket Python: OCR, layout parsing, H, fitur + model N, skema Pydantic, metrik, generator faktur sintetis, CLI |
 | `tests/` | pytest, termasuk uji ujung ke ujung pada dataset tiruan berformat CORD dan fixture paritas Python vs TypeScript |
 | `web/` | Situs statis React + TypeScript (Vite): pdf.js, Tesseract.js, inti ekstraksi kembaran Python |
-| `evaluation/` | Hasil evaluasi (dibuat oleh `docextract all`) |
-| `notebooks/` | Notebook Kaggle yang menjalankan protokol yang sama |
+| `evaluation/` | Hasil evaluasi (dibuat oleh `docextract all`), ringkasannya di `docs/HASIL.md` |
+| `notebooks/` | Notebook Kaggle yang menjalankan protokol yang sama (belum pernah dijalankan di Kaggle) |
 | `docs/` | Protokol evaluasi, kartu model, kartu data, arsitektur, panduan deploy |
 
 ## Cara kerja singkat
@@ -51,7 +65,7 @@ Satu perintah menjalankan seluruh protokol (unduh CORD-v2, pilih pengaturan OCR 
 docextract all
 ```
 
-Butuh akses ke `huggingface.co` dan CDN-nya (`*.hf.co`). Di GitHub, jalankan workflow **Evaluasi CORD** secara manual; hasilnya didorong ke cabang `eval/run-<id>` untuk ditinjau lewat pull request. Split uji hanya boleh dipakai sekali; aturan lengkap di [docs/EVALUASI.md](docs/EVALUASI.md).
+Butuh akses ke `huggingface.co` dan CDN-nya (`*.hf.co`). Di GitHub, jalankan workflow **Evaluasi CORD** secara manual; hasilnya didorong ke cabang `eval/run-<id>` untuk ditinjau lewat pull request. Split uji sudah dipakai sekali untuk hasil di atas; menjalankannya lagi setelah mengubah pipeline harus dilaporkan sebagai hasil baru, bukan pengganti. Aturan lengkap di [docs/EVALUASI.md](docs/EVALUASI.md).
 
 ## Data dan lisensi
 

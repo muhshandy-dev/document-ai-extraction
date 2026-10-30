@@ -61,7 +61,15 @@ export function Method() {
       <section>
         <h2>Batasan yang perlu diketahui</h2>
         <ul>
-          <li>Model hanya dilatih dengan struk CORD. Untuk dokumen lain (faktur pajak, formulir) hasilnya bisa jauh lebih buruk.</li>
+          <li>
+            Model hanya dilatih dengan struk CORD. Pada faktur sintetis, model membaca angka ringkasan dengan baik tetapi
+            hampir selalu salah memotong nama barang, jadi untuk faktur gunakan aturan H. Untuk dokumen lain (faktur
+            pajak, formulir) hasilnya bisa jauh lebih buruk.
+          </li>
+          <li>
+            Pada foto struk, OCR Tesseract adalah sumber kesalahan terbesar: hanya sekitar dua dari lima kata terbaca
+            persis. Karena itu model mengirim hampir semua foto struk ke peninjau.
+          </li>
           <li>
             Evaluasi Python memakai Tesseract native dengan data bahasa yang sama; Tesseract.js di browser bisa memberi
             hasil OCR yang sedikit berbeda.
