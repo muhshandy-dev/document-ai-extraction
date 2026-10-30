@@ -26,6 +26,8 @@ Karena itu v2 **tidak buta penuh** terhadap split uji:
 4. **Pemilihan nilai dengan cek aritmetika** (perakit bersama, dipakai H dan N). Untuk tiap field ringkasan diambil hingga 3 kandidat. Kombinasi dipilih dengan skor = jumlah log keyakinan + lambda x (banyak cek aritmetika yang terpenuhi): jumlah harga item = subtotal, total cocok dengan subtotal/pajak/servis/diskon, tunai dikurangi kembalian = total. Lambda dari {0; 0,5; 1; 2; 4}.
 5. **Aturan peninjauan v2.** Dokumen lolos otomatis bila tidak ada catatan validasi aritmetika atau struktur, dan setiap field punya keyakinan di atas ambang **atau** nilainya sudah dibuktikan oleh cek aritmetika yang terpenuhi. Keyakinan item = rata-rata keyakinan kata namanya, dan nama item tetap harus di atas ambang. Aturan H tetap tanpa ambang (hanya catatan validasi), sama dengan v1. Ambang dari {0; 0,3; 0,4; ...; 0,95}; skor pemilihan sama dengan v1 (benar lolos dikurangi 2 x salah lolos).
 
+6. **Pembanding T (opsional, hanya bila Shandy menyetujui): LayoutLM** (`microsoft/layoutlm-base-uncased`, lisensi MIT) yang di-fine-tune untuk label kata yang sama, hanya di evaluasi Python (tidak dipakai situs). Data latih sama dengan N. AdamW, laju belajar 5e-5, batch 8, 4 epoch, seed 0; epoch terbaik dipilih dengan skor pemilihan di validasi. Perakit memakai lambda yang terpilih untuk N; ambang peninjauan T dipilih tersendiri di validasi dengan skor yang sama. Halaman yang lebih panjang dari 512 token dipotong.
+
 Urutan pemilihan di validasi: OCR, lalu (c1, c2) dengan lambda 1, lalu lambda, lalu ambang. Skor pemilihan model dan lambda sama dengan v1: rata-rata field-F1 mikro dan F1 baris tabel (masukan OCR).
 
 ## Pengembangan

@@ -21,6 +21,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+# research comparison T (LayoutLM); install torch from the CPU index first
+transformer = ["torch>=2.4", "transformers>=4.44"]
 
 [project.scripts]
 docextract = "docextract.cli:main"

@@ -158,16 +158,7 @@ def cmd_train(_: argparse.Namespace) -> None:
         print(lam_rows[-1])
     lam = max(lam_rows, key=lambda r: (r["selection_score"], -r["lambda"]))["lambda"]
 
-    tau_rows = []
-    for tau in TAU_GRID:
-        scores = _val(model, cfg, lam, tau)
-        auto = [s for s in scores if not s.routed]
-        right = sum(s.doc_correct for s in auto)
-        wrong = len(auto) - right
-        tau_rows.append(
-            {"tau": tau, "auto": len(auto), "auto_right": right, "auto_wrong": wrong, "utility": right - 2 * wrong}
-        )
-    tau = max(tau_rows, key=lambda r: (r["utility"], -r["tau"]))["tau"]
+    tau, tau_rows = _tau_rows(model, cfg, lam)
 
     model.meta.update(review_min_conf=tau, assemble_lambda=lam, ocr=cfg.to_dict(), protocol="v2")
     _write(MODEL_PATH, model.to_json(), compact=True)
@@ -185,6 +176,58 @@ def cmd_train(_: argparse.Namespace) -> None:
     )
     _save_config(c1=model.meta["c1"], c2=model.meta["c2"], lam=lam, tau=tau)
     print("model ->", MODEL_PATH, "c1", model.meta["c1"], "c2", model.meta["c2"], "lambda", lam, "tau", tau)
+
+
+TRANSFORMER_DIR = P.CACHE / "layoutlm"
+
+
+def _tau_rows(model, cfg: OcrConfig, lam: float) -> tuple[float, list[dict]]:
+    rows = []
+    for tau in TAU_GRID:
+        scores = _val(model, cfg, lam, tau)
+        auto = [s for s in scores if not s.routed]
+        right = sum(s.doc_correct for s in auto)
+        wrong = len(auto) - right
+        rows.append(
+            {"tau": tau, "auto": len(auto), "auto_right": right, "auto_wrong": wrong, "utility": right - 2 * wrong}
+        )
+    return max(rows, key=lambda r: (r["utility"], -r["tau"]))["tau"], rows
+
+
+def cmd_train_transformer(args: argparse.Namespace) -> None:
+    """Research comparison T (LayoutLM), Python only. Epoch and review threshold chosen on validation."""
+    from .transformer import train_layoutlm
+
+    cfg = _ocr_cfg()
+    lam = _config()["lam"]  # the assembler setting chosen for N
+    pages, gold = _train_pages(cfg)
+
+    def select(tagger) -> float:
+        return _selection_score(aggregate(_val(tagger, cfg, lam)))
+
+    tagger, history = train_layoutlm(pages, gold, select, epochs=args.epochs)
+    tau, tau_rows = _tau_rows(tagger, cfg, lam)
+    TRANSFORMER_DIR.mkdir(parents=True, exist_ok=True)
+    tagger.model.save_pretrained(TRANSFORMER_DIR)
+    tagger.tokenizer.save_pretrained(TRANSFORMER_DIR)
+    _write(
+        EVAL / "transformer-selection.json",
+        {"split": "validation", "meta": tagger.meta, "epochs": history, "tau_grid": tau_rows, "chosen_tau": tau},
+    )
+    _save_config(transformer={"tau": tau, "chosen_epoch": tagger.meta["chosen_epoch"]})
+    print("transformer -> epoch", tagger.meta["chosen_epoch"], "tau", tau)
+
+
+def _load_transformer():
+    t = _config().get("transformer")
+    if not t or not TRANSFORMER_DIR.exists():
+        return None, None
+    from transformers import LayoutLMForTokenClassification, LayoutLMTokenizerFast
+
+    from .transformer import LayoutLMTagger
+
+    model = LayoutLMForTokenClassification.from_pretrained(TRANSFORMER_DIR)
+    return LayoutLMTagger(model, LayoutLMTokenizerFast.from_pretrained(TRANSFORMER_DIR)), t["tau"]
 
 
 def _load_v1(split: str) -> dict[str, list[DocScore]]:
@@ -219,6 +262,13 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
             keep_predictions=True,
         )
         runs[name], preds[name] = scores, pr
+    tmodel, ttau = _load_transformer()
+    if tmodel is not None:
+        for name, source in (("T-ocr", "ocr"), ("T-gt", "gt")):
+            scores, pr = P.run_split(
+                args.split, "N", source, cfg, tmodel, min_conf=ttau, lam=lam, keep_predictions=True
+            )
+            runs[name], preds[name] = scores, pr
     if v1 and [s.doc_id for s in next(iter(v1.values()))] == [s.doc_id for s in runs["H-ocr"]]:
         all_runs = {**v1, **runs}
     else:
@@ -367,6 +417,8 @@ def cmd_dev(args: argparse.Namespace) -> None:
         cmd_select_ocr(ns(workers=args.workers))
     cmd_ocr(ns(splits=["train", "validation"], workers=args.workers))
     cmd_train(ns())
+    if args.with_transformer:
+        cmd_train_transformer(ns(epochs=args.epochs))
     cmd_evaluate(ns(split="validation", n_boot=args.n_boot))
 
 
@@ -378,6 +430,8 @@ def cmd_all(args: argparse.Namespace) -> None:
     cmd_select_ocr(ns(workers=args.workers))
     cmd_ocr(ns(splits=["train", "validation", "test"], workers=args.workers))
     cmd_train(ns())
+    if args.with_transformer:
+        cmd_train_transformer(ns(epochs=args.epochs))
     cmd_evaluate(ns(split="validation", n_boot=args.n_boot))
     cmd_evaluate(ns(split="test", n_boot=args.n_boot))
     cmd_synth(ns(start=1000, n=args.n_synth, n_boot=args.n_boot))
@@ -398,6 +452,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--workers", type=int, default=4)
     p.set_defaults(fn=cmd_ocr)
     sub.add_parser("train").set_defaults(fn=cmd_train)
+    p = sub.add_parser("train-transformer")
+    p.add_argument("--epochs", type=int, default=4)
+    p.set_defaults(fn=cmd_train_transformer)
     p = sub.add_parser("evaluate")
     p.add_argument("--split", default="validation", choices=["validation", "test"])
     p.add_argument("--n-boot", type=int, default=2000)
@@ -417,12 +474,16 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--n-boot", type=int, default=200)
     p.add_argument("--skip-download", action="store_true")
     p.add_argument("--skip-ocr-grid", action="store_true")
+    p.add_argument("--with-transformer", action="store_true")
+    p.add_argument("--epochs", type=int, default=4)
     p.set_defaults(fn=cmd_dev)
     p = sub.add_parser("all")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--n-synth", type=int, default=200)
     p.add_argument("--skip-download", action="store_true")
+    p.add_argument("--with-transformer", action="store_true")
+    p.add_argument("--epochs", type=int, default=4)
     p.set_defaults(fn=cmd_all)
     args = ap.parse_args(argv)
     args.fn(args)

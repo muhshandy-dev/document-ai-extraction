@@ -7,6 +7,8 @@
 #   whose commit message contains [jalankan-evaluasi] (results are committed back to
 #   that branch). `docextract all` scores the test split once, after every choice is
 #   frozen on validation.
+# - [dengan-transformer] in the commit message also fine-tunes the LayoutLM comparison
+#   (Python only, CPU, about 1-2 hours).
 name: Evaluasi CORD
 
 on:
@@ -25,7 +27,7 @@ jobs:
   dev:
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[dev-validasi]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 300
     env:
       DOCEXTRACT_NO_TEST: "1"
     steps:
@@ -36,6 +38,12 @@ jobs:
       - name: Tesseract + poppler
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
       - run: pip install -e ".[dev]"
+      - name: LayoutLM (opsional)
+        if: contains(github.event.head_commit.message, '[dengan-transformer]')
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev,transformer]"
+          echo "TRANSFORMER_FLAG=--with-transformer" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: data
@@ -45,7 +53,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p evaluation/v2
-          docextract dev --workers 4 2>&1 | tee evaluation/v2/dev-log.txt
+          set -o pipefail
+          docextract dev --workers 4 $TRANSFORMER_FLAG 2>&1 | tee evaluation/v2/dev-log.txt
       - name: Simpan hasil dan cache ke cabang dev-cache
         if: always()
         shell: bash
@@ -71,7 +80,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.event.inputs.konfirmasi == 'JALANKAN') ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[jalankan-evaluasi]'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -80,9 +89,18 @@ jobs:
       - name: Tesseract + poppler
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
       - run: pip install -e ".[dev]"
+      - name: LayoutLM (opsional)
+        if: contains(github.event.head_commit.message, '[dengan-transformer]')
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev,transformer]"
+          echo "TRANSFORMER_FLAG=--with-transformer" >> "$GITHUB_ENV"
       - name: Protokol lengkap
         shell: bash
-        run: mkdir -p evaluation/v2 && docextract all --workers 4 --n-boot 2000 --n-synth 200 2>&1 | tee evaluation/v2/run-log.txt
+        run: |
+          set -o pipefail
+          mkdir -p evaluation/v2
+          docextract all --workers 4 --n-boot 2000 --n-synth 200 $TRANSFORMER_FLAG 2>&1 | tee evaluation/v2/run-log.txt
       - name: Catat lingkungan
         if: always()
         run: |
@@ -92,7 +110,7 @@ jobs:
             echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             tesseract --version 2>&1 | head -1
             python --version
-            pip freeze | grep -iE "scikit-learn|crfsuite|numpy|pydantic|pytesseract|pillow|pyarrow"
+            pip freeze | grep -iE "scikit-learn|crfsuite|numpy|pydantic|pytesseract|pillow|pyarrow|torch|transformers"
             sha256sum data/cord/*.parquet
           } > evaluation/v2/environment.txt
       - uses: actions/upload-artifact@v4
