@@ -8,6 +8,13 @@ line groups labelled with it. The chosen combination maximises
 so a slightly less confident reading wins when it makes subtotal, tax,
 total, cash and change add up. With lam = 0 this is the v1 choice (the
 most confident group per field).
+
+When the word labeller gives a label distribution (N and T), words that
+were not labelled with a field but still have probability >= ALT_MIN for
+it form extra candidates for that field, ranked after the labelled ones,
+with confidence = mean probability of the field. These alternatives are
+only considered when lam > 0, so they can win only through the
+arithmetic checks.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ from .text import parse_amount, parse_count
 
 MAX_CANDIDATES = 3
 MIN_LOG_CONF = 1e-6
+ALT_MIN = 0.1
 
 
 class _Item:
@@ -71,9 +79,17 @@ def arithmetic_checks(values: dict[str, int | None], item_sum: int, has_items: b
     return n
 
 
-def assemble(page: Page, labels: list[str], probs: list[float], lam: float = 0.0) -> ExtractedDocument:
+def assemble(
+    page: Page,
+    labels: list[str],
+    probs: list[float],
+    lam: float = 0.0,
+    field_probs: list[dict[str, float]] | None = None,
+) -> ExtractedDocument:
+    """field_probs[k][f]: probability that word k carries scalar field f (optional)."""
     words = page.words
     assert len(words) == len(labels) == len(probs)
+    assert field_probs is None or len(field_probs) == len(words)
 
     # line items: walk words in reading order
     line_of = [li for li, line in enumerate(page.lines) for _ in line.words]
@@ -113,24 +129,40 @@ def assemble(page: Page, labels: list[str], probs: list[float], lam: float = 0.0
 
     # scalar fields: line groups per field -> candidate values
     groups: dict[str, list[tuple[float, int, list[str], list[float]]]] = {f: [] for f in SCALAR_FIELDS}
+    alts: dict[str, list[tuple[float, int, list[str], list[float]]]] = {f: [] for f in SCALAR_FIELDS}
+    use_alts = field_probs is not None and lam != 0.0
     k = 0
     for li, line in enumerate(page.lines):
         per_line: dict[str, tuple[list[str], list[float]]] = {}
+        alt_line: dict[str, tuple[list[str], list[float]]] = {}
         for w in line.words:
             lab = labels[k]
             if lab in groups:
                 texts, ps = per_line.setdefault(lab, ([], []))
                 texts.append(w.text)
                 ps.append(probs[k])
+            if use_alts:
+                assert field_probs is not None
+                for f in SCALAR_FIELDS:
+                    p = field_probs[k].get(f, 0.0)
+                    if f != lab and p >= ALT_MIN:
+                        texts, ps = alt_line.setdefault(f, ([], []))
+                        texts.append(w.text)
+                        ps.append(p)
             k += 1
         for lab, (texts, ps) in per_line.items():
             groups[lab].append((sum(ps), li, texts, ps))
+        for f in SCALAR_FIELDS:
+            if f in alt_line:
+                texts, ps = alt_line[f]
+                alts[f].append((sum(ps), li, texts, ps))
 
     options: list[list[ScalarValue | None]] = []
     for f in SCALAR_FIELDS:
         cands: list[ScalarValue] = []
         seen: set[int] = set()
-        for _, _, texts, ps in sorted(groups[f], key=lambda c: (-c[0], c[1])):
+        ranked = sorted(groups[f], key=lambda c: (-c[0], c[1])) + sorted(alts[f], key=lambda c: (-c[0], c[1]))
+        for _, _, texts, ps in ranked:
             value = parse_amount("".join(texts))
             if value is None or value in seen:
                 continue

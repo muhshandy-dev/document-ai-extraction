@@ -73,3 +73,21 @@ def test_verified_fields_skip_low_confidence_flags():
     doc.discount = None
     doc.items[0].confidence = 0.5
     assert [(i.code, i.field) for i in validate_document(doc, min_conf=0.9)] == [("LOW_CONF", "items.0")]
+
+
+def test_alternative_candidates_from_label_distribution():
+    # the labeller put "total" on 58.000 only; 48.000 has some total probability
+    rows = [["Nasi", "40.000"], ["Teh", "8.000"], ["SUBTOTAL", "48.000"], ["TOTAL", "58.000"], ["JUMLAH", "48.000"]]
+    labels = [["menu.nm", "menu.price"], ["menu.nm", "menu.price"], ["O", "subtotal"], ["O", "total"], ["O", "O"]]
+    probs = [[0.9, 0.9], [0.9, 0.9], [1.0, 0.9], [1.0, 0.8], [1.0, 0.7]]
+    page, lab, pr = _labelled(rows, labels, probs)
+    fp = [{} for _ in lab]
+    fp[-1] = {"total": 0.25}
+    fp[-2] = {"total": 0.8}
+    assert assemble(page, lab, pr, lam=1.0).value("total") == 58000
+    assert assemble(page, lab, pr, lam=0.0, field_probs=fp).value("total") == 58000
+    doc = assemble(page, lab, pr, lam=2.0, field_probs=fp)
+    assert doc.value("total") == 48000 and doc.total.confidence == 0.525  # mean over "JUMLAH 48.000"
+    # below ALT_MIN the word is not a candidate
+    fp[-1] = {"total": 0.05}
+    assert assemble(page, lab, pr, lam=2.0, field_probs=fp).value("total") == 58000

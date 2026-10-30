@@ -1,6 +1,8 @@
 // Labelled words -> ExtractedDocument. Twin of src/docextract/assemble.py.
 // Scalar fields: up to MAX_CANDIDATES values per field; the chosen combination maximises
 // sum(log confidence) + lambda * (arithmetic checks that hold). lambda = 0 is the v1 choice.
+// With a label distribution (model N), words with probability >= ALT_MIN for a field they
+// were not labelled with form extra candidates, ranked last and used only when lambda > 0.
 import { type Page, pageWords } from "./layout";
 import {
   type ExtractedDocument,
@@ -14,6 +16,7 @@ import { parseAmount, parseCount } from "./text";
 
 export const MAX_CANDIDATES = 3;
 const MIN_LOG_CONF = 1e-6;
+export const ALT_MIN = 0.1;
 
 interface Item {
   name: string[];
@@ -76,9 +79,16 @@ export function arithmeticChecks(
   return n;
 }
 
-export function assemble(page: Page, labels: string[], probs: number[], lam = 0): Assembled {
+export function assemble(
+  page: Page,
+  labels: string[],
+  probs: number[],
+  lam = 0,
+  fieldProbs: Record<string, number>[] | null = null,
+): Assembled {
   const words = pageWords(page);
   if (words.length !== labels.length || labels.length !== probs.length) throw new Error("length mismatch");
+  if (fieldProbs !== null && fieldProbs.length !== words.length) throw new Error("length mismatch");
 
   // line items: walk words in reading order
   const lineOf = page.lines.flatMap((l, li) => l.words.map(() => li));
@@ -134,20 +144,30 @@ export function assemble(page: Page, labels: string[], probs: number[], lam = 0)
   // scalar fields: line groups per field -> candidate values
   type Group = { sum: number; li: number; texts: string[]; ps: number[]; idx: number[] };
   const groups: Record<string, Group[]> = Object.fromEntries(SCALAR_FIELDS.map((f) => [f, []]));
+  const alts: Record<string, Group[]> = Object.fromEntries(SCALAR_FIELDS.map((f) => [f, []]));
+  const useAlts = fieldProbs !== null && lam !== 0;
   let k = 0;
   page.lines.forEach((line, li) => {
     const perLine = new Map<string, Group>();
+    const altLine = new Map<string, Group>();
+    const add = (m: Map<string, Group>, key: string, text: string, p: number) => {
+      let g = m.get(key);
+      if (!g) {
+        g = { sum: 0, li, texts: [], ps: [], idx: [] };
+        m.set(key, g);
+      }
+      g.texts.push(text);
+      g.ps.push(p);
+      g.idx.push(k);
+    };
     for (const w of line.words) {
       const lab = labels[k];
-      if (lab in groups) {
-        let g = perLine.get(lab);
-        if (!g) {
-          g = { sum: 0, li, texts: [], ps: [], idx: [] };
-          perLine.set(lab, g);
+      if (lab in groups) add(perLine, lab, w.text, probs[k]);
+      if (useAlts) {
+        for (const f of SCALAR_FIELDS) {
+          const p = fieldProbs![k][f] ?? 0;
+          if (f !== lab && p >= ALT_MIN) add(altLine, f, w.text, p);
         }
-        g.texts.push(w.text);
-        g.ps.push(probs[k]);
-        g.idx.push(k);
       }
       k++;
     }
@@ -156,13 +176,21 @@ export function assemble(page: Page, labels: string[], probs: number[], lam = 0)
       g.sum = g.ps.reduce((a, b) => a + b, 0);
       groups[lab].push(g);
     }
+    for (const f of SCALAR_FIELDS) {
+      const g = altLine.get(f);
+      if (g) {
+        g.sum = g.ps.reduce((a, b) => a + b, 0);
+        alts[f].push(g);
+      }
+    }
   });
 
   type Cand = { sv: ScalarValue; idx: number[] } | null;
   const options: Cand[][] = SCALAR_FIELDS.map((f) => {
     const cands: Cand[] = [];
     const seen = new Set<number>();
-    const sorted = groups[f].slice().sort((a, b) => b.sum - a.sum || a.li - b.li);
+    const byConf = (a: Group, b: Group) => b.sum - a.sum || a.li - b.li;
+    const sorted = [...groups[f].slice().sort(byConf), ...alts[f].slice().sort(byConf)];
     for (const g of sorted) {
       const value = parseAmount(g.texts.join(""));
       if (value === null || seen.has(value)) continue;

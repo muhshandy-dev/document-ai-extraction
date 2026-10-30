@@ -30,6 +30,20 @@ Karena itu v2 **tidak buta penuh** terhadap split uji:
 
 Urutan pemilihan di validasi: OCR, lalu (c1, c2) dengan lambda 1, lalu lambda, lalu ambang. Skor pemilihan model dan lambda sama dengan v1: rata-rata field-F1 mikro dan F1 baris tabel (masukan OCR).
 
+## Catatan iterasi validasi
+
+**Iterasi 1** (run 41125737565, 30 Oktober 2026, validasi saja, 100 struk):
+
+- OCR terpilih: psm 11, ambang Sauvola, skala 1,0. Kata terbaca persis 44,9% (pengaturan v1: 43,4%). Kenaikannya kecil; OCR tetap hambatan utama.
+- CRF terpilih: c1 0,2, c2 0,1. Field-F1 N 55,8% (model v1 di validasi: 51,4%), F1 baris 33,1% (v1: 32,3%).
+- **Temuan:** semua nilai lambda memberi hasil yang persis sama. Penyebabnya, kandidat nilai hanya diambil dari kata yang diberi label oleh Viterbi, dan CRF hampir selalu memberi satu kelompok kata per field, jadi tidak ada pilihan lain untuk dicek aritmetika.
+- Ambang peninjauan terpilih 0,9: N mengirim 93% struk validasi ke peninjau (v1: 99%), 5 dari 7 yang lolos otomatis benar.
+
+**Perubahan setelah iterasi 1** (dibuat sebelum split uji dipakai):
+
+- Kandidat tambahan dari distribusi label: kata yang tidak diberi label suatu field tetapi peluang marginal field itu minimal 0,1 (`ALT_MIN`, nilai tetap, tidak dituning) membentuk kandidat tambahan per baris untuk field tersebut, diurutkan setelah kandidat berlabel, dengan keyakinan = rata-rata peluang field itu. Kandidat tambahan hanya dipakai bila lambda > 0, sehingga hanya bisa menang lewat cek aritmetika. Berlaku untuk N dan T (H tidak punya distribusi label), di Python dan browser.
+- Pembanding LayoutLM ikut dijalankan di iterasi 2.
+
 ## Pengembangan
 
 - Mode pengembangan (`docextract dev`, workflow dengan penanda `[dev-validasi]`) hanya memuat split latih dan validasi. Kode menolak memuat split uji di mode ini. Hasil dan cache validasi disimpan di cabang `dev-cache/...`, bukan di cabang PR.

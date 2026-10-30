@@ -104,12 +104,17 @@ class CrfModel:
         log_z = logsumexp(alpha[-1])
         return [[math.exp(alpha[t][y] + beta[t][y] - log_z) for y in range(k)] for t in range(n)]
 
-    def predict_page(self, page: Page) -> tuple[list[str], list[float]]:
+    def predict_dist(self, page: Page) -> tuple[list[str], list[float], list[list[float]]]:
+        """Viterbi labels, their marginal probabilities, and the full marginals per word."""
         em = self.emissions(page_features(page))
         path = self.viterbi(em)
         marg = self.marginals(em)
         labels = [self.labels[y] for y in path]
         probs = [min(max(marg[t][y], 0.0), 1.0) for t, y in enumerate(path)]
+        return labels, probs, marg
+
+    def predict_page(self, page: Page) -> tuple[list[str], list[float]]:
+        labels, probs, _ = self.predict_dist(page)
         return labels, probs
 
     def to_json(self) -> dict:

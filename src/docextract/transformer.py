@@ -60,11 +60,16 @@ class LayoutLMTagger:
         return {"input_ids": ids, "bbox": boxes, "labels": labs}, first
 
     def predict_page(self, page: Page) -> tuple[list[str], list[float]]:
+        labels, probs, _ = self.predict_dist(page)
+        return labels, probs
+
+    def predict_dist(self, page: Page) -> tuple[list[str], list[float], list[list[float]]]:
+        """Labels, their probabilities, and the softmax distribution per word (one-hot O past the cut)."""
         import torch
 
         n = len(page.words)
         if n == 0:
-            return [], []
+            return [], [], []
         enc, first = self.encode(page)
         if len(first) < n:
             self.truncated += 1
@@ -76,14 +81,17 @@ class LayoutLMTagger:
                 attention_mask=torch.ones(1, len(enc["input_ids"]), dtype=torch.long),
             )
             probs = torch.softmax(out.logits[0], dim=-1)
+        o = self.index.get("O", 0)
         labels = ["O"] * n
         conf = [1.0] * n
+        dist = [[1.0 if j == o else 0.0 for j in range(len(self.labels))] for _ in range(n)]
         for wi, ti in enumerate(first):
             p = probs[ti]
             k = int(torch.argmax(p))
             labels[wi] = self.labels[k]
             conf[wi] = float(p[k])
-        return labels, conf
+            dist[wi] = [float(x) for x in p]
+        return labels, conf, dist
 
 
 def _batches(encoded: list[dict], size: int, rnd: random.Random) -> list[list[dict]]:

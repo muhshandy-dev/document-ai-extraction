@@ -121,9 +121,9 @@ def main() -> None:
     for name, words, w, h in pages[60:] + hand_pages():
         page = group_lines(words, w, h)
         h_labels = label_page(page)
-        n_labels, n_probs = model.predict_page(page)
+        n_labels, n_probs, dist = model.predict_dist(page)
         doc_h = assemble(page, h_labels, [1.0] * len(h_labels), lam=LAM)
-        doc_n = assemble(page, n_labels, n_probs, lam=LAM)
+        doc_n = assemble(page, n_labels, n_probs, lam=LAM, field_probs=P.field_probs(model.labels, dist))
         doc_n0 = assemble(page, n_labels, n_probs, lam=0.0)
         cases.append(
             {

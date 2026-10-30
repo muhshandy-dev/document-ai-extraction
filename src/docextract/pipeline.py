@@ -15,7 +15,7 @@ from .heuristic import label_page
 from .layout import Page, Word, group_lines
 from .model import CrfModel
 from .ocr import OcrConfig, align_labels, ocr_image, word_recall
-from .schema import ExtractedDocument, validate_document
+from .schema import SCALAR_FIELDS, ExtractedDocument, validate_document
 
 ROOT = Path(__file__).resolve().parents[2]
 # DOCEXTRACT_DATA moves downloads and caches (used by the offline test on a fake CORD set).
@@ -136,6 +136,12 @@ def ocr_word_recall(split: str, cfg: OcrConfig) -> float:
 # ---------------------------------------------------------------- extraction
 
 
+def field_probs(labels: list[str], dist: list[list[float]]) -> list[dict[str, float]]:
+    """Per word: probability of each scalar field, from the labeller's distribution."""
+    idx = [(lab, i) for i, lab in enumerate(labels) if lab in SCALAR_FIELDS]
+    return [{lab: row[i] for lab, i in idx} for row in dist]
+
+
 def extract(page: Page, approach: str, model: CrfModel | None, min_conf: float | None, lam: float = 0.0):
     """Label, assemble (with the arithmetic-aware choice of field values) and validate one page."""
     if approach == "H":
@@ -145,8 +151,8 @@ def extract(page: Page, approach: str, model: CrfModel | None, min_conf: float |
         issues = validate_document(doc)
     else:
         assert model is not None
-        labels, probs = model.predict_page(page)
-        doc = assemble(page, labels, probs, lam=lam)
+        labels, probs, dist = model.predict_dist(page)
+        doc = assemble(page, labels, probs, lam=lam, field_probs=field_probs(model.labels, dist))
         issues = validate_document(doc, min_conf=min_conf)
     return doc, issues, labels, probs
 

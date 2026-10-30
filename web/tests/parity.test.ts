@@ -5,8 +5,8 @@ import { assemble } from "../src/core/assemble";
 import { pageFeatures } from "../src/core/features";
 import { labelPage } from "../src/core/heuristic";
 import { type Word, groupLines } from "../src/core/layout";
-import { type ModelJson, predictPage } from "../src/core/model";
-import { type ExtractedDocument, validateDocument } from "../src/core/schema";
+import { type ModelJson, fieldProbs, predictPage } from "../src/core/model";
+import { type ExtractedDocument, SCALAR_FIELDS, validateDocument } from "../src/core/schema";
 import { fixOcrToken, isMoney, normName, parseAmount, parseCount, similarity, wordShape } from "../src/core/text";
 
 interface Case {
@@ -75,7 +75,8 @@ describe("pipeline matches Python on fixture pages", () => {
       const n = predictPage(fixture.model, page);
       expect(n.labels).toEqual(c.n_labels);
       n.probs.forEach((p, i) => expect(p).toBeCloseTo(c.n_probs[i], 9));
-      const docN = assemble(page, n.labels, n.probs, fixture.lam).doc;
+      const fp = fieldProbs(fixture.model.labels, n.dist, SCALAR_FIELDS);
+      const docN = assemble(page, n.labels, n.probs, fixture.lam, fp).doc;
       expectSameDoc(docN, c.doc_n);
       expectSameDoc(assemble(page, n.labels, n.probs, 0).doc, c.doc_n0);
       expect(validateDocument(docN, fixture.tau).map((i) => i.code)).toEqual(c.issues_n);

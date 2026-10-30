@@ -117,6 +117,12 @@ export function marginals(model: ModelJson, em: number[][]): number[][] {
   return alpha.map((a, t) => a.map((v, y) => Math.exp(v + beta[t][y] - logZ)));
 }
 
+/** Per word: probability of each scalar field (labels that are field names). */
+export function fieldProbs(labels: string[], dist: number[][], fields: readonly string[]): Record<string, number>[] {
+  const idx = labels.map((lab, i) => [lab, i] as const).filter(([lab]) => fields.includes(lab));
+  return dist.map((row) => Object.fromEntries(idx.map(([lab, i]) => [lab, row[i]])));
+}
+
 export function predictPage(model: ModelJson, page: Page): Prediction {
   const em = emissions(model, pageFeatures(page));
   const path = viterbi(model, em);
