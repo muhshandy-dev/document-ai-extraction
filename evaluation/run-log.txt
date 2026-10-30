@@ -1,0 +1,34 @@
+download test-00000-of-00001-9c204eb3f4e11791.parquet
+download validation-00000-of-00001-cc3c5779fe22e8ca.parquet
+download train-00000-of-00004-b4aaeceff1d90ecb.parquet
+download train-00001-of-00004-7dbbe248962764c5.parquet
+download train-00002-of-00004-688fe1305a55e5cc.parquet
+download train-00003-of-00004-2d0cd200555ed7fd.parquet
+ground truth cached in /home/runner/work/document-ai-extraction/document-ai-extraction/data/cache/gt
+{'lang': 'eng', 'psm': 4, 'word_recall': 0.35, 'seconds': 18.5}
+{'lang': 'eng', 'psm': 6, 'word_recall': 0.4177, 'seconds': 30.2}
+{'lang': 'ind', 'psm': 4, 'word_recall': 0.3298, 'seconds': 18.3}
+{'lang': 'ind', 'psm': 6, 'word_recall': 0.4048, 'seconds': 35.0}
+{'lang': 'eng+ind', 'psm': 4, 'word_recall': 0.3623, 'seconds': 21.4}
+{'lang': 'eng+ind', 'psm': 6, 'word_recall': 0.4337, 'seconds': 49.6}
+train 393s
+validation 0s
+test 46s
+{'C': 0.1, 'field_micro_f1': 0.5035971223021583, 'row_f1': 0.3129251700680272, 'selection_score': 0.40826114618509274}
+{'C': 0.3, 'field_micro_f1': 0.5141843971631206, 'row_f1': 0.3234624145785877, 'selection_score': 0.41882340587085415}
+{'C': 1.0, 'field_micro_f1': 0.513986013986014, 'row_f1': 0.3160270880361174, 'selection_score': 0.41500655101106565}
+{'C': 3.0, 'field_micro_f1': 0.5043478260869565, 'row_f1': 0.2844638949671772, 'selection_score': 0.39440586052706683}
+model -> /home/runner/work/document-ai-extraction/document-ai-extraction/web/public/model/model-n.json C 0.3 tau 0.95
+H-ocr fieldF1=0.432 rowF1=0.278 tabel=0.10 review=0.84 auto_acc=0.1875
+N-ocr fieldF1=0.514 rowF1=0.323 tabel=0.16 review=0.99 auto_acc=1.0
+H-gt fieldF1=0.852 rowF1=0.726 tabel=0.56 review=0.41 auto_acc=0.5254237288135594
+N-gt fieldF1=0.936 rowF1=0.730 tabel=0.62 review=0.80 auto_acc=0.95
+H-ocr fieldF1=0.403 rowF1=0.226 tabel=0.11 review=0.85 auto_acc=0.13333333333333333
+N-ocr fieldF1=0.491 rowF1=0.258 tabel=0.11 review=0.99 auto_acc=1.0
+H-gt fieldF1=0.835 rowF1=0.619 tabel=0.46 review=0.56 auto_acc=0.4772727272727273
+N-gt fieldF1=0.941 rowF1=0.703 tabel=0.62 review=0.86 auto_acc=1.0
+H-ocr fieldF1=0.988 rowF1=0.945 review=0.13
+N-ocr fieldF1=0.978 rowF1=0.153 review=1.00
+H-pdf fieldF1=1.000 rowF1=1.000 review=0.00
+N-pdf fieldF1=0.994 rowF1=0.158 review=1.00
+samples: 8 -> /home/runner/work/document-ai-extraction/document-ai-extraction/web/public/samples

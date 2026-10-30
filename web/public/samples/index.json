@@ -26,5 +26,33 @@
   "origin": "Faktur sintetis",
   "kind": "pdf",
   "src": "samples/faktur-5002.pdf"
+ },
+ {
+  "id": "cord-test-0000",
+  "title": "Struk test-0000",
+  "origin": "CORD-v2 (CC BY 4.0)",
+  "kind": "image",
+  "src": "samples/cord-test-0000.jpg"
+ },
+ {
+  "id": "cord-test-0001",
+  "title": "Struk test-0001",
+  "origin": "CORD-v2 (CC BY 4.0)",
+  "kind": "image",
+  "src": "samples/cord-test-0001.jpg"
+ },
+ {
+  "id": "cord-test-0002",
+  "title": "Struk test-0002",
+  "origin": "CORD-v2 (CC BY 4.0)",
+  "kind": "image",
+  "src": "samples/cord-test-0002.jpg"
+ },
+ {
+  "id": "cord-test-0003",
+  "title": "Struk test-0003",
+  "origin": "CORD-v2 (CC BY 4.0)",
+  "kind": "image",
+  "src": "samples/cord-test-0003.jpg"
  }
 ]

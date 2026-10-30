@@ -13,6 +13,8 @@ interface Props {
   approach: Approach;
   onApproach: (a: Approach) => void;
   hasModel: boolean;
+  /** True for invoices: the model was trained on CORD receipts only. */
+  outOfDomain?: boolean;
   result: ApproachResult;
   doc: ExtractedDocument;
   issues: Issue[];
@@ -81,6 +83,12 @@ export function Panel(p: Props) {
             Aturan heuristik (H)
           </button>
         </div>
+        {p.approach === "N" && p.outOfDomain && (
+          <p className="muted" style={{ fontSize: 13, margin: "8px 0 0" }}>
+            Model N hanya dilatih dengan struk. Pada faktur, model sering salah memotong nama barang (lihat{" "}
+            <a href="#/evaluasi">Evaluasi</a>), jadi aturan H lebih tepat untuk dokumen ini.
+          </p>
+        )}
       </div>
 
       <div className={`status ${p.approved ? "done" : needsReview ? "warn" : "ok"}`} role="status">

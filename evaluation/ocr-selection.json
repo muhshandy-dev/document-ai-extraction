@@ -1,0 +1,47 @@
+{
+ "split": "validation",
+ "grid": [
+  {
+   "lang": "eng",
+   "psm": 4,
+   "word_recall": 0.35,
+   "seconds": 18.5
+  },
+  {
+   "lang": "eng",
+   "psm": 6,
+   "word_recall": 0.4177,
+   "seconds": 30.2
+  },
+  {
+   "lang": "ind",
+   "psm": 4,
+   "word_recall": 0.3298,
+   "seconds": 18.3
+  },
+  {
+   "lang": "ind",
+   "psm": 6,
+   "word_recall": 0.4048,
+   "seconds": 35.0
+  },
+  {
+   "lang": "eng+ind",
+   "psm": 4,
+   "word_recall": 0.3623,
+   "seconds": 21.4
+  },
+  {
+   "lang": "eng+ind",
+   "psm": 6,
+   "word_recall": 0.4337,
+   "seconds": 49.6
+  }
+ ],
+ "chosen": {
+  "lang": "eng+ind",
+  "psm": 6,
+  "word_recall": 0.4337,
+  "seconds": 49.6
+ }
+}

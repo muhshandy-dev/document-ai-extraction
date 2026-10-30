@@ -310,6 +310,7 @@ export function Studio({ samples, model }: Props) {
             setHighlight(new Set());
           }}
           hasModel={Boolean(model)}
+          outOfDomain={current.origin.startsWith("Faktur")}
           result={result}
           doc={doc}
           issues={issues}

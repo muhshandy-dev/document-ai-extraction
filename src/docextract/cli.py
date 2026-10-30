@@ -29,9 +29,13 @@ C_GRID = [0.1, 0.3, 1.0, 3.0]
 TAU_GRID = [0.0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
 
 
-def _write(path: Path, obj) -> None:
+def _write(path: Path, obj, compact: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, indent=1, ensure_ascii=False) + "\n")
+    if compact:  # the browser downloads the model; indentation alone adds about 2 MB
+        text = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+    else:
+        text = json.dumps(obj, indent=1, ensure_ascii=False)
+    path.write_text(text + "\n")
 
 
 def _config() -> dict:
@@ -117,7 +121,7 @@ def cmd_train(_: argparse.Namespace) -> None:
     tau = max(tau_rows, key=lambda r: (r["utility"], -r["tau"]))["tau"]
     model.meta["review_min_conf"] = tau
     model.meta["ocr"] = {"lang": cfg["ocr_lang"], "psm": cfg["ocr_psm"]}
-    _write(MODEL_PATH, model.to_json())
+    _write(MODEL_PATH, model.to_json(), compact=True)
     _write(
         EVAL / "model-selection.json",
         {"split": "validation", "C_grid": rows, "chosen_C": c, "tau_grid": tau_rows, "chosen_tau": tau},
