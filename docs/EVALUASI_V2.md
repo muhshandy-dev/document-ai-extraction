@@ -36,7 +36,7 @@ Urutan pemilihan di validasi: OCR, lalu (c1, c2) dengan lambda 1, lalu lambda, l
 
 ## Laporan akhir
 
-- Satu kali `docextract all-v2`: semua pilihan di validasi, lalu split uji sekali, lalu faktur sintetis seed 1000-1199.
+- Satu kali `docextract all` (workflow dengan penanda `[jalankan-evaluasi]`): semua pilihan di validasi, lalu split uji sekali, lalu faktur sintetis seed 1000-1199.
 - Hasil v2 ditulis ke `evaluation/v2/`; berkas v1 di `evaluation/` tidak diubah.
 - Dilaporkan: H dan N v2 (OCR dan teks benar) dengan CI 95%, serta **selisih berpasangan v2 dikurangi v1** pada dokumen uji yang sama untuk H dan N.
 - Perbaikan hanya diklaim bila selang selisih berpasangan tidak memuat 0. Bila v2 tidak lebih baik, itu yang ditulis.
