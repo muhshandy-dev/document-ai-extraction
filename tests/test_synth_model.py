@@ -2,7 +2,7 @@ from conftest import make_page
 
 from docextract.cord import gt_document
 from docextract.heuristic import label_page
-from docextract.model import LinearModel, train
+from docextract.model import CrfModel, train
 from docextract.synth import make_invoice
 
 
@@ -32,15 +32,42 @@ def test_cord_gt_parse_with_alternatives_and_single_menu():
     assert doc.value("cash") is None
 
 
-def test_trained_model_roundtrips_through_json(tmp_path):
+def test_trained_crf_roundtrips_through_json(tmp_path):
     rows = [["2", "Nasi", "Goreng", "40.000"], ["1", "Es", "Teh", "8.000"], ["TOTAL", "48.000"]]
     pages = [make_page(rows) for _ in range(4)]
-    model = train(pages, [label_page(p) for p in pages], c=1.0, min_count=1)
+    model = train(pages, [label_page(p) for p in pages], c1=0.0, c2=0.01)
     path = tmp_path / "m.json"
     import json
 
     path.write_text(json.dumps(model.to_json()))
-    loaded = LinearModel.load(path)
+    loaded = CrfModel.load(path)
     labels, probs = loaded.predict_page(pages[0])
     assert labels == label_page(pages[0])
     assert all(0 < p <= 1 for p in probs)
+
+
+def test_crf_inference_matches_brute_force():
+    """Viterbi = best path and marginals = normalised path weights, on a tiny model."""
+    import itertools
+    import math
+
+    labels = ["O", "menu.nm", "total"]
+    weights = {"a": [0, 0.5, 1, 1.2], "b": [1, -0.3, 2, 0.95], "c": [0, 0.1, 2, 0.4]}
+    trans = [[0.2, -0.1, 0.3], [0.0, 0.7, -0.5], [-0.2, 0.1, 0.05]]
+    m = CrfModel(labels, weights, trans, {})
+    feats = [["a"], ["b", "c"], ["a", "c"], ["b"]]
+    em = m.emissions(feats)
+
+    def score(path):
+        s = sum(em[t][y] for t, y in enumerate(path))
+        return s + sum(trans[a][b] for a, b in zip(path, path[1:], strict=False))
+
+    paths = list(itertools.product(range(3), repeat=len(feats)))
+    best = max(paths, key=score)
+    assert tuple(m.viterbi(em)) == best
+    z = sum(math.exp(score(p)) for p in paths)
+    marg = m.marginals(em)
+    for t in range(len(feats)):
+        for y in range(3):
+            exact = sum(math.exp(score(p)) for p in paths if p[t] == y) / z
+            assert abs(marg[t][y] - exact) < 1e-12

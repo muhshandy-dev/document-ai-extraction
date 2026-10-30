@@ -13,8 +13,8 @@ from .cord import iter_split
 from .evaluate import DocScore, aggregate, score_document
 from .heuristic import label_page
 from .layout import Page, Word, group_lines
-from .model import LinearModel
-from .ocr import align_labels, ocr_image, word_recall
+from .model import CrfModel
+from .ocr import OcrConfig, align_labels, ocr_image, word_recall
 from .schema import ExtractedDocument, validate_document
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,10 +48,6 @@ def ensure_tessdata() -> Path:
     return TESSDATA
 
 
-def ocr_key(lang: str, psm: int) -> str:
-    return f"{lang.replace('+', '_')}-psm{psm}"
-
-
 # ---------------------------------------------------------------- caching
 
 
@@ -78,21 +74,23 @@ def cache_ground_truth(split: str) -> Path:
 
 
 def load_gt(split: str) -> list[dict]:
+    if split == "test" and os.environ.get("DOCEXTRACT_NO_TEST"):
+        raise PermissionError("development mode (DOCEXTRACT_NO_TEST): the test split may not be read")
     path = CACHE / "gt" / f"{split}.jsonl"
     if not path.exists():
         cache_ground_truth(split)
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def _ocr_job(args: tuple[str, bytes, str, int, str]) -> tuple[str, list[dict]]:
-    doc_id, img, lang, psm, tessdata = args
-    words = ocr_image(img, lang=lang, psm=psm, tessdata_dir=Path(tessdata))
+def _ocr_job(args: tuple[str, bytes, OcrConfig, str]) -> tuple[str, list[dict]]:
+    doc_id, img, cfg, tessdata = args
+    words = ocr_image(img, cfg.lang, cfg.psm, Path(tessdata), cfg.thresh, cfg.scale)
     return doc_id, [w.to_dict() for w in words]
 
 
-def cache_ocr(split: str, lang: str, psm: int, workers: int = 4, limit: int | None = None) -> Path:
+def cache_ocr(split: str, cfg: OcrConfig, workers: int = 4, limit: int | None = None) -> Path:
     """OCR every page of a split once; results are reused by all experiments."""
-    out_dir = CACHE / "ocr" / ocr_key(lang, psm)
+    out_dir = CACHE / "ocr" / cfg.key
     out_dir.mkdir(parents=True, exist_ok=True)
     ensure_tessdata()
     os.environ.setdefault("OMP_THREAD_LIMIT", "1")
@@ -101,15 +99,15 @@ def cache_ocr(split: str, lang: str, psm: int, workers: int = 4, limit: int | No
         if limit is not None and i >= limit:
             break
         if not (out_dir / f"{s.doc_id}.json").exists():
-            jobs.append((s.doc_id, s.image_bytes, lang, psm, str(TESSDATA)))
+            jobs.append((s.doc_id, s.image_bytes, cfg, str(TESSDATA)))
     with ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn")) as ex:
         for doc_id, words in ex.map(_ocr_job, jobs, chunksize=2):
             (out_dir / f"{doc_id}.json").write_text(json.dumps(words))
     return out_dir
 
 
-def load_ocr(doc_id: str, lang: str, psm: int) -> list[Word]:
-    path = CACHE / "ocr" / ocr_key(lang, psm) / f"{doc_id}.json"
+def load_ocr(doc_id: str, cfg: OcrConfig) -> list[Word]:
+    path = CACHE / "ocr" / cfg.key / f"{doc_id}.json"
     return [Word.from_dict(d) for d in json.loads(path.read_text())]
 
 
@@ -120,17 +118,17 @@ def gt_page(rec: dict) -> Page:
     return group_lines([Word.from_dict(d) for d in rec["words"]], rec["width"], rec["height"])
 
 
-def ocr_page(rec: dict, lang: str, psm: int, labelled: bool = False) -> Page:
-    words = load_ocr(rec["doc_id"], lang, psm)
+def ocr_page(rec: dict, cfg: OcrConfig, labelled: bool = False) -> Page:
+    words = load_ocr(rec["doc_id"], cfg)
     if labelled:
         words = align_labels(words, [Word.from_dict(d) for d in rec["words"]])
     return group_lines(words, rec["width"], rec["height"])
 
 
-def ocr_word_recall(split: str, lang: str, psm: int) -> float:
+def ocr_word_recall(split: str, cfg: OcrConfig) -> float:
     hit = tot = 0
     for rec in load_gt(split):
-        h, t = word_recall(load_ocr(rec["doc_id"], lang, psm), [Word.from_dict(d) for d in rec["words"]])
+        h, t = word_recall(load_ocr(rec["doc_id"], cfg), [Word.from_dict(d) for d in rec["words"]])
         hit, tot = hit + h, tot + t
     return hit / tot if tot else 0.0
 
@@ -138,16 +136,17 @@ def ocr_word_recall(split: str, lang: str, psm: int) -> float:
 # ---------------------------------------------------------------- extraction
 
 
-def extract(page: Page, approach: str, model: LinearModel | None, min_conf: float | None):
+def extract(page: Page, approach: str, model: CrfModel | None, min_conf: float | None, lam: float = 0.0):
+    """Label, assemble (with the arithmetic-aware choice of field values) and validate one page."""
     if approach == "H":
         labels = label_page(page)
         probs = [1.0] * len(labels)
-        doc = assemble(page, labels, probs)
+        doc = assemble(page, labels, probs, lam=lam)
         issues = validate_document(doc)
     else:
         assert model is not None
         labels, probs = model.predict_page(page)
-        doc = assemble(page, labels, probs)
+        doc = assemble(page, labels, probs, lam=lam)
         issues = validate_document(doc, min_conf=min_conf)
     return doc, issues, labels, probs
 
@@ -156,17 +155,17 @@ def run_split(
     split: str,
     approach: str,
     source: str,
-    lang: str,
-    psm: int,
-    model: LinearModel | None = None,
+    cfg: OcrConfig,
+    model: CrfModel | None = None,
     min_conf: float | None = None,
+    lam: float = 0.0,
     keep_predictions: bool = False,
 ) -> tuple[list[DocScore], list[dict]]:
     scores: list[DocScore] = []
     preds: list[dict] = []
     for rec in load_gt(split):
-        page = gt_page(rec) if source == "gt" else ocr_page(rec, lang, psm)
-        doc, issues, labels, probs = extract(page, approach, model, min_conf)
+        page = gt_page(rec) if source == "gt" else ocr_page(rec, cfg)
+        doc, issues, labels, probs = extract(page, approach, model, min_conf, lam)
         gt = ExtractedDocument.model_validate(rec["doc"])
         scores.append(score_document(rec["doc_id"], doc, gt, rec["alts"], [i.code for i in issues]))
         if keep_predictions:

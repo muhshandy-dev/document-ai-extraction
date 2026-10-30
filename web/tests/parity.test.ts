@@ -7,7 +7,7 @@ import { labelPage } from "../src/core/heuristic";
 import { type Word, groupLines } from "../src/core/layout";
 import { type ModelJson, predictPage } from "../src/core/model";
 import { type ExtractedDocument, validateDocument } from "../src/core/schema";
-import { isMoney, normName, parseAmount, parseCount, similarity, wordShape } from "../src/core/text";
+import { fixOcrToken, isMoney, normName, parseAmount, parseCount, similarity, wordShape } from "../src/core/text";
 
 interface Case {
   name: string;
@@ -21,12 +21,15 @@ interface Case {
   n_probs: number[];
   doc_h: ExtractedDocument;
   doc_n: ExtractedDocument;
+  doc_n0: ExtractedDocument;
   issues_h: string[];
   issues_n: string[];
 }
 
 const fixture = JSON.parse(readFileSync(resolve(__dirname, "../../tests/fixtures/parity.json"), "utf8")) as {
   model: ModelJson;
+  lam: number;
+  tau: number;
   text: Record<string, unknown>[];
   cases: Case[];
 };
@@ -51,6 +54,7 @@ describe("text helpers match Python", () => {
       expect(wordShape(s)).toBe(t.shape);
       expect(normName(s)).toBe(t.norm);
       expect(similarity(s, "TOTAL")).toBeCloseTo(t.sim_total as number, 8);
+      expect(fixOcrToken(s)).toBe(t.fixed);
     });
   }
 });
@@ -64,16 +68,17 @@ describe("pipeline matches Python on fixture pages", () => {
 
       const h = labelPage(page);
       expect(h).toEqual(c.h_labels);
-      const docH = assemble(page, h, h.map(() => 1)).doc;
+      const docH = assemble(page, h, h.map(() => 1), fixture.lam).doc;
       expectSameDoc(docH, c.doc_h);
       expect(validateDocument(docH).map((i) => i.code)).toEqual(c.issues_h);
 
       const n = predictPage(fixture.model, page);
       expect(n.labels).toEqual(c.n_labels);
       n.probs.forEach((p, i) => expect(p).toBeCloseTo(c.n_probs[i], 9));
-      const docN = assemble(page, n.labels, n.probs).doc;
+      const docN = assemble(page, n.labels, n.probs, fixture.lam).doc;
       expectSameDoc(docN, c.doc_n);
-      expect(validateDocument(docN, 0.6).map((i) => i.code)).toEqual(c.issues_n);
+      expectSameDoc(assemble(page, n.labels, n.probs, 0).doc, c.doc_n0);
+      expect(validateDocument(docN, fixture.tau).map((i) => i.code)).toEqual(c.issues_n);
     });
   }
 });

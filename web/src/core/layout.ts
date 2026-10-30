@@ -1,4 +1,5 @@
 // Twin of src/docextract/layout.py.
+import { fixOcrToken } from "./text";
 
 export interface Word {
   text: string;
@@ -35,6 +36,10 @@ export const pageWords = (p: Page): Word[] => p.lines.flatMap((l) => l.words);
 export function groupLines(words: Word[], width: number, height: number): Page {
   const order = words
     .filter((w) => w.text.trim().length > 0)
+    .map((w) => {
+      const t = fixOcrToken(w.text);
+      return t === w.text ? w : { ...w, text: t };
+    })
     .map((w, i) => ({ w, i }))
     .sort((a, b) => yc(a.w) - yc(b.w) || a.w.x0 - b.w.x0 || a.i - b.i)
     .map((o) => o.w);

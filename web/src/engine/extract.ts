@@ -33,9 +33,10 @@ export function extract(
   const ordered = pageWords(page);
   const hLabels = labelPage(page);
   const hProbs = hLabels.map(() => 1);
-  const h = assemble(page, hLabels, hProbs);
+  const lam = model.meta.assemble_lambda ?? 0;
+  const h = assemble(page, hLabels, hProbs, lam);
   const n = predictPage(model, page);
-  const nAsm = assemble(page, n.labels, n.probs);
+  const nAsm = assemble(page, n.labels, n.probs, lam);
   const tau = model.meta.review_min_conf ?? 0.5;
   return {
     page,

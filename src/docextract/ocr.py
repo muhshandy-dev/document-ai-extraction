@@ -8,20 +8,57 @@ weights are identical; only the engine build differs (see docs).
 from __future__ import annotations
 
 import io
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .layout import Word
 
 
-def ocr_image(image_bytes: bytes, lang: str = "eng", psm: int = 4, tessdata_dir: Path | None = None) -> list[Word]:
+@dataclass(frozen=True)
+class OcrConfig:
+    """One Tesseract setting. The browser reads the chosen one from the model file."""
+
+    lang: str = "eng+ind"
+    psm: int = 6
+    thresh: int = 0
+    scale: float = 1.0
+
+    @property
+    def key(self) -> str:
+        return f"{self.lang.replace('+', '_')}-psm{self.psm}-t{self.thresh}-s{self.scale:g}"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> OcrConfig:
+        return cls(d["lang"], int(d["psm"]), int(d.get("thresh", 0)), float(d.get("scale", 1.0)))
+
+
+def ocr_image(
+    image_bytes: bytes,
+    lang: str = "eng",
+    psm: int = 4,
+    tessdata_dir: Path | None = None,
+    thresh: int = 0,
+    scale: float = 1.0,
+) -> list[Word]:
+    """Tesseract words with boxes in the original image's pixel frame.
+
+    `thresh` is Tesseract's thresholding_method (0 Otsu, 1 Leptonica adaptive
+    Otsu, 2 Sauvola). `scale` enlarges the image before OCR; boxes are mapped
+    back. The browser applies the same settings (web/src/engine/ocr.ts).
+    """
     import pytesseract
     from PIL import Image
 
-    config = f"--oem 1 --psm {psm} -c preserve_interword_spaces=0"
+    config = f"--oem 1 --psm {psm} -c preserve_interword_spaces=0 -c thresholding_method={thresh}"
     if tessdata_dir is not None:
         config += f' --tessdata-dir "{tessdata_dir}"'
     with Image.open(io.BytesIO(image_bytes)) as im:
         im = im.convert("RGB")
+        if scale != 1.0:
+            im = im.resize((round(im.width * scale), round(im.height * scale)), Image.BICUBIC)
         data = pytesseract.image_to_data(im, lang=lang, config=config, output_type=pytesseract.Output.DICT)
     words: list[Word] = []
     for i, text in enumerate(data["text"]):
@@ -30,7 +67,7 @@ def ocr_image(image_bytes: bytes, lang: str = "eng", psm: int = 4, tessdata_dir:
         if not text or conf < 0:
             continue
         x, y, w, h = data["left"][i], data["top"][i], data["width"][i], data["height"][i]
-        words.append(Word(text, float(x), float(y), float(x + w), float(y + h), conf))
+        words.append(Word(text, x / scale, y / scale, (x + w) / scale, (y + h) / scale, conf))
     return words
 
 

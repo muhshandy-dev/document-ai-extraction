@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -150,6 +151,8 @@ def iter_split(data_dir: Path, split: str) -> Iterator[CordSample]:
     import pyarrow.parquet as pq
     from PIL import Image
 
+    if split == "test" and os.environ.get("DOCEXTRACT_NO_TEST"):
+        raise PermissionError("development mode (DOCEXTRACT_NO_TEST): the test split may not be read")
     files = sorted(data_dir.glob(f"{split}-*.parquet"))
     if not files:
         raise FileNotFoundError(f"no {split}-*.parquet in {data_dir}; run `docextract download`")

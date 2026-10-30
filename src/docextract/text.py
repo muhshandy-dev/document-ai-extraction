@@ -81,6 +81,51 @@ def is_money(text: str) -> bool:
     return bool(_GROUPED_RE.match(t) or re.fullmatch(r"[0-9]{3,}", t))
 
 
+# Letters Tesseract often reads in place of digits inside amounts.
+OCR_DIGIT_FIX = {
+    "O": "0",
+    "o": "0",
+    "D": "0",
+    "Q": "0",
+    "I": "1",
+    "l": "1",
+    "i": "1",
+    "|": "1",
+    "S": "5",
+    "B": "8",
+    "Z": "2",
+}
+
+
+def fix_ocr_token(text: str) -> str:
+    """Repair an amount such as '1O.0O0' -> '10.000'. Other tokens are returned unchanged.
+
+    Only tokens made of digits, '.', ',' and look-alike letters qualify, with
+    at least two digits. With a separator ('1O.0O0') there may be as many
+    look-alikes as digits; without one ('1O00') the token needs four or more
+    characters and at most one look-alike per two digits, so codes like 'B12'
+    stay as they are.
+    """
+    digits = confusable = 0
+    sep = False
+    for ch in text:
+        if "0" <= ch <= "9":
+            digits += 1
+        elif ch in OCR_DIGIT_FIX:
+            confusable += 1
+        elif ch in ".,":
+            sep = True
+        else:
+            return text
+    if confusable == 0 or digits < 2:
+        return text
+    if sep and confusable > digits:
+        return text
+    if not sep and (confusable * 2 > digits or digits + confusable < 4):
+        return text
+    return "".join(OCR_DIGIT_FIX.get(ch, ch) for ch in text)
+
+
 def word_shape(text: str) -> str:
     """Collapse characters into classes: A upper, a lower, 0 digit, others kept."""
     out: list[str] = []

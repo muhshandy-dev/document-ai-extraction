@@ -21,16 +21,16 @@ Karena itu v2 **tidak buta penuh** terhadap split uji:
    - skala gambar: 1,0 atau 1,5 (gambar diperbesar sebelum OCR, kotak kata dikembalikan ke ukuran asli)
 
    Dipilih yang paling banyak membaca kata anotasi validasi secara persis (definisi sama dengan v1). Seri dipecah dengan waktu tercepat.
-2. **Koreksi angka OCR.** Token yang hampir seluruhnya angka dan hanya memuat huruf yang mirip angka (O, o, D, Q jadi 0; I, l, i, | jadi 1; S jadi 5; B jadi 8; Z jadi 2) diperbaiki sebelum pelabelan. Aturannya tetap dan tidak dituning. Berlaku untuk H dan N, di Python dan browser.
+2. **Koreksi angka OCR.** Token yang hanya terdiri dari angka, titik, koma, dan huruf yang mirip angka (O, o, D, Q jadi 0; I, l, i, | jadi 1; S jadi 5; B jadi 8; Z jadi 2) diperbaiki saat kata disusun menjadi baris. Syaratnya minimal dua angka; dengan pemisah (titik atau koma) jumlah huruf mirip angka paling banyak sama dengan jumlah angka; tanpa pemisah token minimal empat karakter dan huruf mirip angka paling banyak separuh jumlah angka, sehingga kode seperti "B12" tidak berubah (`fix_ocr_token`). Aturannya tetap dan tidak dituning. Berlaku untuk H dan N, di Python dan browser.
 3. **Model N v2: CRF berantai linear** (python-crfsuite, L-BFGS) atas fitur kata v1 ditambah kelompok keyakinan OCR. Label dipilih dengan Viterbi dan keyakinan tiap kata dihitung dari peluang marginal (forward-backward). Inferensi memakai tabel bobot yang diekspor, di Python dan browser. Kisi regularisasi: c1 dari {0; 0,05; 0,2}, c2 dari {0,01; 0,1; 1}.
-4. **Pemilihan nilai dengan cek aritmetika.** Untuk tiap field ringkasan diambil hingga 3 kandidat. Kombinasi dipilih dengan skor = jumlah log keyakinan + lambda x (banyak cek aritmetika yang terpenuhi): jumlah harga item = subtotal, total cocok dengan subtotal/pajak/servis/diskon, tunai dikurangi kembalian = total. Lambda dari {0; 0,5; 1; 2; 4}.
-5. **Aturan peninjauan v2.** Dokumen lolos otomatis bila tidak ada catatan validasi aritmetika atau struktur, dan setiap field punya keyakinan di atas ambang **atau** nilainya sudah dibuktikan oleh cek aritmetika yang terpenuhi. Nama item tetap harus di atas ambang. Ambang dari {0; 0,3; 0,4; ...; 0,95}; skor pemilihan sama dengan v1 (benar lolos dikurangi 2 x salah lolos).
+4. **Pemilihan nilai dengan cek aritmetika** (perakit bersama, dipakai H dan N). Untuk tiap field ringkasan diambil hingga 3 kandidat. Kombinasi dipilih dengan skor = jumlah log keyakinan + lambda x (banyak cek aritmetika yang terpenuhi): jumlah harga item = subtotal, total cocok dengan subtotal/pajak/servis/diskon, tunai dikurangi kembalian = total. Lambda dari {0; 0,5; 1; 2; 4}.
+5. **Aturan peninjauan v2.** Dokumen lolos otomatis bila tidak ada catatan validasi aritmetika atau struktur, dan setiap field punya keyakinan di atas ambang **atau** nilainya sudah dibuktikan oleh cek aritmetika yang terpenuhi. Keyakinan item = rata-rata keyakinan kata namanya, dan nama item tetap harus di atas ambang. Aturan H tetap tanpa ambang (hanya catatan validasi), sama dengan v1. Ambang dari {0; 0,3; 0,4; ...; 0,95}; skor pemilihan sama dengan v1 (benar lolos dikurangi 2 x salah lolos).
 
 Urutan pemilihan di validasi: OCR, lalu (c1, c2) dengan lambda 1, lalu lambda, lalu ambang. Skor pemilihan model dan lambda sama dengan v1: rata-rata field-F1 mikro dan F1 baris tabel (masukan OCR).
 
 ## Pengembangan
 
-- Mode pengembangan (`docextract dev`) hanya memuat split latih dan validasi. Kode menolak memuat split uji di mode ini.
+- Mode pengembangan (`docextract dev`, workflow dengan penanda `[dev-validasi]`) hanya memuat split latih dan validasi. Kode menolak memuat split uji di mode ini. Hasil dan cache validasi disimpan di cabang `dev-cache/...`, bukan di cabang PR.
 - Iterasi di validasi boleh berulang. Setiap iterasi tercatat di riwayat git.
 - Aturan H juga ikut memakai OCR v2 dan koreksi angka, tetapi aturannya sendiri tidak diubah.
 

@@ -1,10 +1,26 @@
-"""Labelled words -> ExtractedDocument. Twin: web/src/core/assemble.ts."""
+"""Labelled words -> ExtractedDocument. Twin: web/src/core/assemble.ts.
+
+Scalar fields (v2): each field keeps up to MAX_CANDIDATES values from the
+line groups labelled with it. The chosen combination maximises
+
+    sum(log confidence) + lam * (number of arithmetic checks that hold)
+
+so a slightly less confident reading wins when it makes subtotal, tax,
+total, cash and change add up. With lam = 0 this is the v1 choice (the
+most confident group per field).
+"""
 
 from __future__ import annotations
+
+import math
+from itertools import product
 
 from .layout import Page
 from .schema import SCALAR_FIELDS, ExtractedDocument, LineItem, ScalarValue
 from .text import parse_amount, parse_count
+
+MAX_CANDIDATES = 3
+MIN_LOG_CONF = 1e-6
 
 
 class _Item:
@@ -14,13 +30,15 @@ class _Item:
         self.unit: list[str] = []
         self.price: list[str] = []
         self.probs: list[float] = []
+        self.name_probs: list[float] = []
         self.last = ""
         self.last_line = -1
 
     def to_model(self) -> LineItem:
         price = parse_amount("".join(self.price))
         unit = parse_amount("".join(self.unit))
-        conf = sum(self.probs) / len(self.probs) if self.probs else 0.0
+        ps = self.name_probs or self.probs  # v2: an item is as sure as its name
+        conf = sum(ps) / len(ps) if ps else 0.0
         return LineItem(
             name=" ".join(self.name),
             qty=parse_count(" ".join(self.cnt)),
@@ -30,34 +48,32 @@ class _Item:
         )
 
 
-def assemble(page: Page, labels: list[str], probs: list[float]) -> ExtractedDocument:
+def total_options(base: int, tax: int, svc: int, disc: int) -> list[int]:
+    """Totals accepted for a base amount (receipts print totals with or without tax)."""
+    return [base + tax + svc - disc, base + tax + svc, base - disc, base]
+
+
+def arithmetic_checks(values: dict[str, int | None], item_sum: int, has_items: bool) -> int:
+    """How many of the three independent checks hold (0-3)."""
+    n = 0
+    sub, total = values["subtotal"], values["total"]
+    if has_items and sub is not None and item_sum == sub:
+        n += 1
+    if total is not None:
+        base = sub if sub is not None else (item_sum if has_items else None)
+        if base is not None and total in total_options(
+            base, values["tax"] or 0, values["service"] or 0, values["discount"] or 0
+        ):
+            n += 1
+        cash, change = values["cash"], values["change"]
+        if cash is not None and change is not None and cash - change == total:
+            n += 1
+    return n
+
+
+def assemble(page: Page, labels: list[str], probs: list[float], lam: float = 0.0) -> ExtractedDocument:
     words = page.words
     assert len(words) == len(labels) == len(probs)
-
-    # scalar fields: best line-group per field
-    groups: dict[str, list[tuple[float, int, list[str], list[float]]]] = {f: [] for f in SCALAR_FIELDS}
-    k = 0
-    for li, line in enumerate(page.lines):
-        per_line: dict[str, tuple[list[str], list[float]]] = {}
-        for w in line.words:
-            lab = labels[k]
-            if lab in groups:
-                texts, ps = per_line.setdefault(lab, ([], []))
-                texts.append(w.text)
-                ps.append(probs[k])
-            k += 1
-        for lab, (texts, ps) in per_line.items():
-            groups[lab].append((sum(ps), li, texts, ps))
-
-    doc = ExtractedDocument()
-    for f in SCALAR_FIELDS:
-        cands = sorted(groups[f], key=lambda c: (-c[0], c[1]))
-        for _, _, texts, ps in cands:
-            value = parse_amount("".join(texts))
-            if value is not None:
-                conf = sum(ps) / len(ps)
-                setattr(doc, f, ScalarValue(value=value, confidence=min(max(conf, 0.0), 1.0), text=" ".join(texts)))
-                break
 
     # line items: walk words in reading order
     line_of = [li for li, line in enumerate(page.lines) for _ in line.words]
@@ -71,6 +87,7 @@ def assemble(page: Page, labels: list[str], probs: list[float]) -> ExtractedDocu
                 cur = _Item()
                 items.append(cur)
             cur.name.append(w.text)
+            cur.name_probs.append(p)
         elif lab == "menu.cnt":
             if cur is None or cur.price or cur.cnt:
                 cur = _Item()
@@ -91,5 +108,52 @@ def assemble(page: Page, labels: list[str], probs: list[float]) -> ExtractedDocu
         cur.probs.append(p)
         cur.last = lab
         cur.last_line = li
-    doc.items = [it.to_model() for it in items if it.name or it.price]
+    doc = ExtractedDocument(items=[it.to_model() for it in items if it.name or it.price])
+    item_sum = sum(it.price or 0 for it in doc.items)
+
+    # scalar fields: line groups per field -> candidate values
+    groups: dict[str, list[tuple[float, int, list[str], list[float]]]] = {f: [] for f in SCALAR_FIELDS}
+    k = 0
+    for li, line in enumerate(page.lines):
+        per_line: dict[str, tuple[list[str], list[float]]] = {}
+        for w in line.words:
+            lab = labels[k]
+            if lab in groups:
+                texts, ps = per_line.setdefault(lab, ([], []))
+                texts.append(w.text)
+                ps.append(probs[k])
+            k += 1
+        for lab, (texts, ps) in per_line.items():
+            groups[lab].append((sum(ps), li, texts, ps))
+
+    options: list[list[ScalarValue | None]] = []
+    for f in SCALAR_FIELDS:
+        cands: list[ScalarValue] = []
+        seen: set[int] = set()
+        for _, _, texts, ps in sorted(groups[f], key=lambda c: (-c[0], c[1])):
+            value = parse_amount("".join(texts))
+            if value is None or value in seen:
+                continue
+            seen.add(value)
+            conf = min(max(sum(ps) / len(ps), 0.0), 1.0)
+            cands.append(ScalarValue(value=value, confidence=conf, text=" ".join(texts)))
+            if len(cands) == MAX_CANDIDATES or lam == 0.0:
+                break
+        options.append(cands if cands else [None])
+
+    best: tuple[ScalarValue | None, ...] | None = None
+    best_score = -math.inf
+    for combo in product(*options):
+        score = 0.0
+        for sv in combo:
+            if sv is not None:
+                score += math.log(max(sv.confidence, MIN_LOG_CONF))
+        if lam != 0.0:
+            values = {f: (sv.value if sv is not None else None) for f, sv in zip(SCALAR_FIELDS, combo, strict=True)}
+            score += lam * arithmetic_checks(values, item_sum, bool(doc.items))
+        if score > best_score:
+            best, best_score = combo, score
+    assert best is not None
+    for f, sv in zip(SCALAR_FIELDS, best, strict=True):
+        setattr(doc, f, sv)
     return doc

@@ -65,6 +65,40 @@ function stripChars(s: string, set: string): string {
   return s.slice(a, b);
 }
 
+// Letters Tesseract often reads in place of digits inside amounts.
+export const OCR_DIGIT_FIX: Record<string, string> = {
+  O: "0",
+  o: "0",
+  D: "0",
+  Q: "0",
+  I: "1",
+  l: "1",
+  i: "1",
+  "|": "1",
+  S: "5",
+  B: "8",
+  Z: "2",
+};
+
+/** Repair an amount such as '1O.0O0' -> '10.000'. Twin of fix_ocr_token. */
+export function fixOcrToken(text: string): string {
+  let digits = 0;
+  let confusable = 0;
+  let sep = false;
+  for (const ch of chars(text)) {
+    if (ch >= "0" && ch <= "9") digits++;
+    else if (Object.prototype.hasOwnProperty.call(OCR_DIGIT_FIX, ch)) confusable++;
+    else if (ch === "." || ch === ",") sep = true;
+    else return text;
+  }
+  if (confusable === 0 || digits < 2) return text;
+  if (sep && confusable > digits) return text;
+  if (!sep && (confusable * 2 > digits || digits + confusable < 4)) return text;
+  return chars(text)
+    .map((ch) => (Object.prototype.hasOwnProperty.call(OCR_DIGIT_FIX, ch) ? OCR_DIGIT_FIX[ch] : ch))
+    .join("");
+}
+
 export function wordShape(text: string): string {
   const out: string[] = [];
   for (const ch of chars(text).slice(0, 12)) {

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "document-ai-extraction"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ekstraksi field dan tabel dari struk/faktur: heuristik vs OCR + NLP terlatih"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -15,6 +15,7 @@ dependencies = [
   "pyarrow>=15",
   "numpy>=1.26",
   "scikit-learn>=1.4",
+  "python-crfsuite>=0.9.10",
   "reportlab>=4",
 ]
 

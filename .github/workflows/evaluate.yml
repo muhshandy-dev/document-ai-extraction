@@ -1,15 +1,19 @@
-# Full benchmark on CORD-v2. Starts either manually (results go to a new branch
-# eval/run-<id>) or from a push to a claude/** branch whose commit message
-# contains [jalankan-evaluasi] (results are committed back to that branch).
-# The test split is scored once inside `docextract all`, after OCR settings,
-# C and the review threshold are frozen on the validation split.
+# CORD-v2 benchmark (protocol v2, docs/EVALUASI_V2.md).
+#
+# - dev: a push to a claude/** branch whose commit message contains [dev-validasi]
+#   runs `docextract dev` on train + validation only (the test split cannot be read).
+#   Results and caches go to the branch dev-cache/<branch>, never to the PR branch.
+# - evaluate: started manually (results go to a new branch eval/run-<id>) or by a push
+#   whose commit message contains [jalankan-evaluasi] (results are committed back to
+#   that branch). `docextract all` scores the test split once, after every choice is
+#   frozen on validation.
 name: Evaluasi CORD
 
 on:
   workflow_dispatch:
     inputs:
       konfirmasi:
-        description: "Ketik JALANKAN untuk memulai (split uji hanya boleh dipakai sekali)"
+        description: "Ketik JALANKAN untuk memulai (split uji hanya boleh dipakai sekali per versi)"
         required: true
   push:
     branches: ["claude/**"]
@@ -18,12 +22,56 @@ permissions:
   contents: write
 
 jobs:
+  dev:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[dev-validasi]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      DOCEXTRACT_NO_TEST: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tesseract + poppler
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
+      - run: pip install -e ".[dev]"
+      - uses: actions/cache@v4
+        with:
+          path: data
+          key: cord-dev-${{ hashFiles('src/docextract/ocr.py', 'src/docextract/cord.py', 'web/public/tessdata/*') }}
+          restore-keys: cord-dev-
+      - name: Iterasi validasi (tanpa split uji)
+        shell: bash
+        run: |
+          mkdir -p evaluation/v2
+          docextract dev --workers 4 2>&1 | tee evaluation/v2/dev-log.txt
+      - name: Simpan hasil dan cache ke cabang dev-cache
+        if: always()
+        shell: bash
+        run: |
+          out="$RUNNER_TEMP/devcache"
+          mkdir -p "$out/data/cache"
+          cp -r evaluation/v2 "$out/evaluation-v2" || true
+          cp web/public/model/model-n.json "$out/" || true
+          cp -r data/cache/gt "$out/data/cache/" || true
+          key=$(python -c "import json;from docextract.ocr import OcrConfig;print(OcrConfig.from_dict(json.load(open('evaluation/v2/config.json'))['ocr']).key)" || true)
+          if [ -n "$key" ]; then mkdir -p "$out/data/cache/ocr" && cp -r "data/cache/ocr/$key" "$out/data/cache/ocr/"; fi
+          echo "run ${{ github.run_id }} commit ${{ github.sha }}" > "$out/RUN.txt"
+          cd "$out"
+          git init -q -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Cache pengembangan (validasi saja), run ${{ github.run_id }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/dev-cache/${{ github.ref_name }}"
+
   evaluate:
     if: >-
       (github.event_name == 'workflow_dispatch' && github.event.inputs.konfirmasi == 'JALANKAN') ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[jalankan-evaluasi]'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,7 +82,7 @@ jobs:
       - run: pip install -e ".[dev]"
       - name: Protokol lengkap
         shell: bash
-        run: mkdir -p evaluation && docextract all --workers 4 --n-boot 2000 --n-synth 200 2>&1 | tee evaluation/run-log.txt
+        run: mkdir -p evaluation/v2 && docextract all --workers 4 --n-boot 2000 --n-synth 200 2>&1 | tee evaluation/v2/run-log.txt
       - name: Catat lingkungan
         if: always()
         run: |
@@ -44,9 +92,9 @@ jobs:
             echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             tesseract --version 2>&1 | head -1
             python --version
-            pip freeze | grep -iE "scikit-learn|numpy|pydantic|pytesseract|pillow|pyarrow"
+            pip freeze | grep -iE "scikit-learn|crfsuite|numpy|pydantic|pytesseract|pillow|pyarrow"
             sha256sum data/cord/*.parquet
-          } > evaluation/environment.txt
+          } > evaluation/v2/environment.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -62,5 +110,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ "${{ github.event_name }}" = "push" ]; then target="${{ github.ref_name }}"; else target="eval/run-${{ github.run_id }}"; git checkout -b "$target"; fi
           git add evaluation web/public/model web/public/data web/public/samples
-          git commit -m "Hasil evaluasi CORD (run ${{ github.run_id }})"
+          git commit -m "Hasil evaluasi CORD v2 (run ${{ github.run_id }})"
           git push origin "HEAD:$target"

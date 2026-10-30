@@ -75,6 +75,7 @@ def page_features(page: Page) -> list[list[str]]:
                 "region|ridx|m=" + region + "|" + str(ridx) + "|" + m,
                 "kwp|m=" + kw_prev + "|" + m,
                 "head|m=" + head + "|" + m,
+                "oc=" + str(min(int(w.conf // 20), 5)),
             ]
             if money[j]:
                 f.append("mrank=" + str(min(money_rank[j], 2)))
