@@ -95,6 +95,13 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev,transformer]"
           echo "TRANSFORMER_FLAG=--with-transformer" >> "$GITHUB_ENV"
+      # reuse the train/validation OCR cache of the dev runs (OCR output depends only on
+      # the image and the settings); restore only, so the test split never enters the cache
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: cord-dev-${{ hashFiles('src/docextract/ocr.py', 'src/docextract/cord.py', 'web/public/tessdata/*') }}
+          restore-keys: cord-dev-
       - name: Protokol lengkap
         shell: bash
         run: |
