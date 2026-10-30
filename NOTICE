@@ -1,0 +1,14 @@
+Document AI Extraction
+Kode sumber: lisensi MIT (lihat LICENSE).
+
+Komponen pihak ketiga yang ikut didistribusikan:
+
+1. CORD-v2 (naver-clova-ix/cord-v2), Consolidated Receipt Dataset, NAVER Clova.
+   Lisensi: Creative Commons Attribution 4.0 International (CC BY 4.0).
+   Park et al., "CORD: A Consolidated Receipt Dataset for Post-OCR Parsing", 2019.
+   Dipakai untuk pelatihan dan evaluasi; beberapa gambar uji disertakan sebagai contoh demo tanpa perubahan.
+
+2. Data bahasa Tesseract eng dan ind (tessdata_best_int), Google / tesseract-ocr.
+   Lisensi: Apache License 2.0. Diambil dari paket npm @tesseract.js-data/eng dan @tesseract.js-data/ind versi 1.0.0.
+
+3. Tesseract.js dan tesseract.js-core (Apache-2.0), pdf.js / pdfjs-dist (Apache-2.0), React (MIT).

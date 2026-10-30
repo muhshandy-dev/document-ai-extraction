@@ -1,0 +1,34 @@
+const { chromium } = require('playwright');
+const BASE = process.argv[2] || 'http://localhost:4173';
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const errors = [];
+  page.on('console', m => { if (m.type() === 'error' || m.type()==='warning') errors.push(m.type()+': '+m.text()); });
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('requestfailed', r => errors.push('reqfail: ' + r.url()));
+  await page.goto(BASE + '/#/studio');
+  await page.waitForSelector('.panel .status', { timeout: 60000 });
+  await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/studio-pdf.png' });
+  console.log('pdf status:', await page.textContent('.panel .status strong'));
+  console.log('items:', await page.$$eval('.items tbody tr', r => r.length));
+  // scanned image -> tesseract.js
+  await page.click('text=(pindaian)');
+  const t = Date.now();
+  await page.waitForSelector('.panel .status', { timeout: 180000 });
+  console.log('ocr secs', (Date.now()-t)/1000);
+  console.log('img status:', await page.textContent('.panel .status strong'));
+  console.log('notice:', await page.textContent('.panel .notice'));
+  console.log('fields:', await page.$$eval('.field input', els => els.map(e => e.value)));
+  await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/studio-ocr.png' });
+  await page.goto(BASE + '/#/evaluasi'); await page.waitForTimeout(800);
+  await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/eval.png', fullPage: true });
+  await page.goto(BASE + '/#/cara-kerja'); await page.waitForTimeout(500);
+  await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/method.png', fullPage: true });
+  const m = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await m.goto(BASE + '/#/studio'); await m.waitForSelector('.panel .status', { timeout: 60000 });
+  await m.screenshot({ path: (process.env.SHOTS || '/tmp') + '/studio-390.png', fullPage: true });
+  console.log('scrollW', await m.evaluate(() => document.documentElement.scrollWidth));
+  console.log('ERRORS', JSON.stringify(errors, null, 1));
+  await browser.close();
+})();

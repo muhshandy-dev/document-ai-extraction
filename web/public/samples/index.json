@@ -1,0 +1,30 @@
+[
+ {
+  "id": "faktur-5000",
+  "title": "Faktur INV/2025/02/0985",
+  "origin": "Faktur sintetis",
+  "kind": "pdf",
+  "src": "samples/faktur-5000.pdf"
+ },
+ {
+  "id": "faktur-5000-pindai",
+  "title": "Faktur INV/2025/02/0985 (pindaian)",
+  "origin": "Faktur sintetis",
+  "kind": "image",
+  "src": "samples/faktur-5000-pindai.jpg"
+ },
+ {
+  "id": "faktur-5001",
+  "title": "Faktur INV/2025/06/0146",
+  "origin": "Faktur sintetis",
+  "kind": "pdf",
+  "src": "samples/faktur-5001.pdf"
+ },
+ {
+  "id": "faktur-5002",
+  "title": "Faktur INV/2026/01/0022",
+  "origin": "Faktur sintetis",
+  "kind": "pdf",
+  "src": "samples/faktur-5002.pdf"
+ }
+]

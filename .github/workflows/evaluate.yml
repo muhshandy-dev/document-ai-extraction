@@ -1,0 +1,66 @@
+# Full benchmark on CORD-v2. Starts either manually (results go to a new branch
+# eval/run-<id>) or from a push to a claude/** branch whose commit message
+# contains [jalankan-evaluasi] (results are committed back to that branch).
+# The test split is scored once inside `docextract all`, after OCR settings,
+# C and the review threshold are frozen on the validation split.
+name: Evaluasi CORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      konfirmasi:
+        description: "Ketik JALANKAN untuk memulai (split uji hanya boleh dipakai sekali)"
+        required: true
+  push:
+    branches: ["claude/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  evaluate:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.konfirmasi == 'JALANKAN') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[jalankan-evaluasi]'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tesseract + poppler
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
+      - run: pip install -e ".[dev]"
+      - name: Protokol lengkap
+        shell: bash
+        run: mkdir -p evaluation && docextract all --workers 4 --n-boot 2000 --n-synth 200 2>&1 | tee evaluation/run-log.txt
+      - name: Catat lingkungan
+        if: always()
+        run: |
+          {
+            echo "run_id: ${{ github.run_id }}"
+            echo "commit: ${{ github.sha }}"
+            echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            tesseract --version 2>&1 | head -1
+            python --version
+            pip freeze | grep -iE "scikit-learn|numpy|pydantic|pytesseract|pillow|pyarrow"
+            sha256sum data/cord/*.parquet
+          } > evaluation/environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluasi-${{ github.run_id }}
+          path: |
+            evaluation/
+            web/public/model/
+            web/public/data/
+            web/public/samples/
+      - name: Simpan hasil ke git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "${{ github.event_name }}" = "push" ]; then target="${{ github.ref_name }}"; else target="eval/run-${{ github.run_id }}"; git checkout -b "$target"; fi
+          git add evaluation web/public/model web/public/data web/public/samples
+          git commit -m "Hasil evaluasi CORD (run ${{ github.run_id }})"
+          git push origin "HEAD:$target"

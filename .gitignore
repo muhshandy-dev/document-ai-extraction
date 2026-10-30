@@ -1,0 +1,11 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+data/cord/
+data/cache/
+data/tessdata/
+web/node_modules/
+web/dist/
+web/public/tesseract/
+*.tsbuildinfo
