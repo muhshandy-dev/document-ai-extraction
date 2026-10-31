@@ -1,5 +1,7 @@
 # Hasil evaluasi (run 41080343691, 30 Oktober 2026)
 
+> Ini hasil versi 1. Hasil versi 2 (CRF, OCR baru, pembanding LayoutLM) ada di [HASIL_V2.md](HASIL_V2.md).
+
 Semua angka di halaman ini disalin dari berkas di `evaluation/`, hasil satu kali jalan workflow **Evaluasi CORD** di GitHub Actions ([run 41080343691](https://github.com/muhshandy-dev/document-ai-extraction/actions/runs/41080343691), commit `748fda1`, Tesseract 5.3.4, scikit-learn 1.9.1). Split uji CORD-v2 dijalankan sekali sesuai [protokol](EVALUASI.md). Tidak ada pengaturan yang diubah setelah hasil uji terlihat.
 
 Angka dalam kurung adalah selang kepercayaan 95% dari bootstrap per dokumen (2.000 kali, seed 42).

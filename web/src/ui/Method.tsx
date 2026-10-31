@@ -24,8 +24,8 @@ export function Method() {
           </div>
           <div className="step">
             <strong>Beri label kata</strong>
-            Dua cara: aturan kata kunci (H), atau model regresi logistik (N) yang dilatih pada 800 struk berlabel dengan
-            fitur teks dan posisi.
+            Dua cara: aturan kata kunci (H), atau model CRF (N) yang dilatih pada 800 struk berlabel dengan fitur teks
+            dan posisi, dan memperhitungkan urutan label antar kata.
           </div>
           <div className="step">
             <strong>Rakit dokumen</strong>
@@ -68,13 +68,16 @@ export function Method() {
           </li>
           <li>
             Pada foto struk, OCR Tesseract adalah sumber kesalahan terbesar: hanya sekitar dua dari lima kata terbaca
-            persis. Karena itu model mengirim hampir semua foto struk ke peninjau.
+            persis. Karena itu model mengirim sebagian besar foto struk ke peninjau.
           </li>
           <li>
             Evaluasi Python memakai Tesseract native dengan data bahasa yang sama; Tesseract.js di browser bisa memberi
             hasil OCR yang sedikit berbeda.
           </li>
-          <li>Lolos otomatis bukan jaminan benar. Tingkat kesalahan di antara dokumen yang lolos dilaporkan di halaman evaluasi.</li>
+          <li>
+            Lolos otomatis bukan jaminan benar. Pada uji v2, hanya 2 dari 8 foto struk yang lolos otomatis benar, biasanya
+            karena ada field yang tidak terbaca sama sekali. Tetap periksa semua hasil.
+          </li>
           <li>Hanya halaman pertama PDF yang diproses.</li>
           <li>Ukuran tabel memakai pencocokan nama longgar (kemiripan minimal 80%) dan ketat (nama persis); keduanya dilaporkan.</li>
         </ul>
