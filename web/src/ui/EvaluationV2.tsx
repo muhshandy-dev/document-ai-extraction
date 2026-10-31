@@ -16,6 +16,12 @@ interface OcrSelV2 {
   chosen: { lang: string; psm: number; thresh: number; scale: number };
 }
 
+interface TransformerSel {
+  meta: { model: string; epochs: number; lr: number; batch_size: number; chosen_epoch: number; n_train_pages: number };
+  epochs: { epoch: number; train_loss: number; selection_score: number }[];
+  chosen_tau: number;
+}
+
 const THRESH = ["Otsu", "Otsu adaptif", "Sauvola"];
 
 type Ci = [number | null, number | null] | undefined;
@@ -31,6 +37,7 @@ function ConclusionV2({ res }: { res: Results }) {
   const nh = D["N-ocr - H-ocr"];
   const nv = D["N-ocr - N-ocr-v1"];
   const hv = D["H-ocr - H-ocr-v1"];
+  const tn = D["T-ocr - N-ocr"];
   return (
     <div className="callout">
       <strong>Kesimpulan v2.</strong>{" "}
@@ -50,6 +57,15 @@ function ConclusionV2({ res }: { res: Results }) {
       {fmtPct(v("N-ocr", "review_rate"), 0)} struk ke peninjau; {S["N-ocr"]?.auto_accepted ?? 0} lolos otomatis dan{" "}
       {fmtPct(v("N-ocr", "auto_accept_accuracy"), 0)} di antaranya benar. Dengan teks benar, model yang sama mencapai
       field-F1 {fmtPct(v("N-gt", "field_micro_f1"))}.
+      {S["T-ocr"] && (
+        <>
+          {" "}
+          Pembanding LayoutLM (T) mencapai field-F1 {fmtPct(v("T-ocr", "field_micro_f1"))} dan F1 baris{" "}
+          {fmtPct(v("T-ocr", "row_f1"))}; selisih T dikurangi N: field {range(tn?.field_micro_f1)} (
+          {sure(tn?.field_micro_f1) ? "meyakinkan" : "belum meyakinkan"}), baris {range(tn?.row_f1)} (
+          {sure(tn?.row_f1) ? "meyakinkan" : "belum meyakinkan"}). T hanya dipakai di evaluasi, tidak di situs.
+        </>
+      )}
     </div>
   );
 }
@@ -59,26 +75,32 @@ export function EvaluationV2() {
   const [synth, setSynth] = useState<Results | null>(null);
   const [msel, setMsel] = useState<ModelSelV2 | null>(null);
   const [osel, setOsel] = useState<OcrSelV2 | null>(null);
+  const [tsel, setTsel] = useState<TransformerSel | null>(null);
 
   useEffect(() => {
     void getJson<Results>("data/v2/results-test.json").then(setTest);
     void getJson<Results>("data/v2/results-synth.json").then(setSynth);
     void getJson<ModelSelV2>("data/v2/model-selection.json").then(setMsel);
     void getJson<OcrSelV2>("data/v2/ocr-selection.json").then(setOsel);
+    void getJson<TransformerSel>("data/v2/transformer-selection.json").then(setTsel);
   }, []);
 
   if (test === undefined) return <p className="muted">Memuat hasil…</p>;
   if (test === null) return null;
   const L = RUN_LABELS;
   const o = test.ocr;
+  const lam = Number(test.model?.assemble_lambda ?? 0);
   return (
     <div className="eval-version">
       <h2 className="version-title">Versi 2</h2>
       <p>
         Perubahan: OCR dengan pengaturan baru ({o?.lang}, psm {o?.psm}, ambang {THRESH[o?.thresh ?? 0]}, skala{" "}
         {String(o?.scale ?? 1).replace(".", ",")}), koreksi angka yang terbaca sebagai huruf, model N berupa CRF yang
-        memperhitungkan urutan label, pemilihan nilai yang mengutamakan angka yang cocok secara aritmetika, dan aturan
-        peninjauan yang menerima field yang sudah terbukti oleh aritmetika. Semua pilihan dibuat di split validasi.
+        memperhitungkan urutan label, dan aturan peninjauan yang menerima field yang sudah terbukti oleh aritmetika.
+        {lam > 0
+          ? ` Nilai field dipilih dengan mengutamakan angka yang cocok secara aritmetika (lambda ${lam}).`
+          : " Pemilihan nilai dengan cek aritmetika juga diuji, tetapi tidak membantu di validasi, jadi tidak dipakai (lambda 0)."}{" "}
+        Semua pilihan dibuat di split validasi.
       </p>
       <p className="muted">
         Split uji sudah dipakai sekali oleh v1, dan arah perbaikan v2 diambil dari hasil agregat v1. Karena itu v2 tidak
@@ -88,7 +110,11 @@ export function EvaluationV2() {
       <section>
         <h3>Struk CORD-v2, split uji</h3>
         <ConclusionV2 res={test} />
-        <MainTable res={test} runs={["H-ocr", "N-ocr", "H-gt", "N-gt"]} labels={L} />
+        <MainTable
+          res={test}
+          runs={["H-ocr", "N-ocr", "T-ocr", "H-gt", "N-gt", "T-gt"].filter((r) => test.summary[r])}
+          labels={L}
+        />
       </section>
 
       {test.summary["N-ocr-v1"] && (
@@ -154,6 +180,38 @@ export function EvaluationV2() {
                     <td className="num">{r.auto_right}</td>
                     <td className="num">{r.auto_wrong}</td>
                     <td className="num">{r.utility}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tsel && (
+        <section>
+          <h3>Pembanding LayoutLM (T)</h3>
+          <p>
+            {tsel.meta.model} di-fine-tune dengan {tsel.meta.n_train_pages} struk latih yang sama dengan model N (
+            {tsel.meta.epochs} epoch, laju belajar {tsel.meta.lr}, batch {tsel.meta.batch_size}, CPU). Epoch terpilih di
+            validasi: {tsel.meta.chosen_epoch}; ambang peninjauan T: {tsel.chosen_tau}. Model ini sekitar 450 MB, jadi
+            tidak dimuat di situs; studio tetap memakai model N.
+          </p>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Epoch</th>
+                  <th>Loss latih</th>
+                  <th>Skor pemilihan (validasi)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tsel.epochs.map((r) => (
+                  <tr key={r.epoch} style={r.epoch === tsel.meta.chosen_epoch ? { fontWeight: 650 } : undefined}>
+                    <td className="num">{r.epoch}</td>
+                    <td className="num">{String(r.train_loss).replace(".", ",")}</td>
+                    <td className="num">{fmtPct(r.selection_score)}</td>
                   </tr>
                 ))}
               </tbody>

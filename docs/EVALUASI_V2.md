@@ -44,6 +44,15 @@ Urutan pemilihan di validasi: OCR, lalu (c1, c2) dengan lambda 1, lalu lambda, l
 - Kandidat tambahan dari distribusi label: kata yang tidak diberi label suatu field tetapi peluang marginal field itu minimal 0,1 (`ALT_MIN`, nilai tetap, tidak dituning) membentuk kandidat tambahan per baris untuk field tersebut, diurutkan setelah kandidat berlabel, dengan keyakinan = rata-rata peluang field itu. Kandidat tambahan hanya dipakai bila lambda > 0, sehingga hanya bisa menang lewat cek aritmetika. Berlaku untuk N dan T (H tidak punya distribusi label), di Python dan browser.
 - Pembanding LayoutLM ikut dijalankan di iterasi 2.
 
+**Iterasi 2** (run 41146474005, validasi saja):
+
+- CRF terpilih: c1 0,05, c2 0,1 (dipilih dengan lambda 1, sesuai urutan protokol).
+- Kisi lambda kini berbeda antar nilai, tetapi lambda 0 tetap yang terbaik (field-F1 55,0%; lambda 0,5 sampai 4: 54,6 sampai 55,0%). Jadi pemilihan nilai dengan cek aritmetika **tidak membantu** di validasi dan tidak dipakai (lambda 0). Cek aritmetika tetap dipakai di aturan peninjauan (field yang terbukti tidak ditandai keyakinan rendah).
+- N di validasi: field-F1 55,0%, F1 baris 33,3%, peninjauan 92%, 6 dari 8 yang lolos otomatis benar (ambang 0,95).
+- LayoutLM (T): skor pemilihan per epoch 42,6 / 44,8 / 45,8 / 46,3% (epoch 4 terpilih; masih naik, tetapi jumlah epoch dikunci 4 oleh protokol). Di validasi: field-F1 55,1%, F1 baris 37,4%, peninjauan 83%, 10 dari 17 yang lolos otomatis benar (ambang 0,9). Pelatihan di CPU Actions sekitar 2,5 jam.
+
+**Pembekuan.** Setelah iterasi 2 semua pilihan dibekukan. Tidak ada iterasi lagi sebelum split uji dijalankan sekali (`[jalankan-evaluasi][dengan-transformer]`).
+
 ## Pengembangan
 
 - Mode pengembangan (`docextract dev`, workflow dengan penanda `[dev-validasi]`) hanya memuat split latih dan validasi. Kode menolak memuat split uji di mode ini. Hasil dan cache validasi disimpan di cabang `dev-cache/...`, bukan di cabang PR.

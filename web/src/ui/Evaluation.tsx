@@ -200,6 +200,8 @@ export const RUN_LABELS: Record<string, string> = {
   "N-pdf": "Model (N)",
   "H-ocr-v1": "Aturan (H) v1",
   "N-ocr-v1": "Model (N) v1",
+  "T-ocr": "LayoutLM (T)",
+  "T-gt": "LayoutLM, teks benar",
 };
 
 export function Evaluation() {

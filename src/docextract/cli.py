@@ -398,7 +398,13 @@ def cmd_export_web(args: argparse.Namespace) -> None:
     _write(sdir / "index.json", samples)
     ddir = pub / "data" / "v2"  # v1 copies stay in web/public/data/
     ddir.mkdir(parents=True, exist_ok=True)
-    for name in ("results-test.json", "results-synth.json", "model-selection.json", "ocr-selection.json"):
+    for name in (
+        "results-test.json",
+        "results-synth.json",
+        "model-selection.json",
+        "ocr-selection.json",
+        "transformer-selection.json",
+    ):
         src = EVAL / name
         if src.exists():
             shutil.copy(src, ddir / name)
