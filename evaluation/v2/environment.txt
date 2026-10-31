@@ -1,0 +1,21 @@
+run_id: 41160697515
+commit: 8d739c1c3bea8136e5805d57e4cbfbb5b2d54034
+date_utc: 2026-10-31T05:22:29Z
+tesseract 5.3.4
+Python 3.12.15
+numpy==2.5.4
+pillow==13.0.0
+pyarrow==26.0.0
+pydantic==2.14.2
+pydantic_core==2.50.2
+pytesseract==0.3.13
+python-crfsuite==0.9.12
+scikit-learn==1.9.1
+torch==2.15.0+cpu
+transformers==5.22.1
+51c65f1788faff392abe2a0b55b023eb23e9be551c509138eaa3a832514224e7  data/cord/test-00000-of-00001-9c204eb3f4e11791.parquet
+da3994eee1bf9bd3c57f0d53a72c3a6812c8696c5ba26245987949ddf73483cc  data/cord/train-00000-of-00004-b4aaeceff1d90ecb.parquet
+cce4def16a0d6a6c75f80be712f7494c56c318a8829b712f5c62650155c9e58e  data/cord/train-00001-of-00004-7dbbe248962764c5.parquet
+591e2db8fe8b1d364b054f46e8c375b7f00e72578914ba46a573b6858162cab2  data/cord/train-00002-of-00004-688fe1305a55e5cc.parquet
+1ffd9de8d6fbcee7630fd4cdfedff05b9b7fabc0fae4fc17557c5fe7cf178748  data/cord/train-00003-of-00004-2d0cd200555ed7fd.parquet
+0d0f6dac11fdcc549de2746aa9f53136a3bc22a2a1aff2b0b847f7622ad60c15  data/cord/validation-00000-of-00001-cc3c5779fe22e8ca.parquet

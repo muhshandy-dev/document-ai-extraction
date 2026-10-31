@@ -29,7 +29,7 @@ export function App() {
       .catch(() => setSamples([]));
     fetch("model/model-n.json", { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((m: ModelJson | null) => setModel(m))
+      .then((m: ModelJson | null) => setModel(m && m.type === "crf" ? m : null))
       .catch(() => setModel(null));
   }, []);
 

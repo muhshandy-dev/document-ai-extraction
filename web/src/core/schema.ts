@@ -68,6 +68,42 @@ export function schemaErrors(doc: ExtractedDocument): string[] {
   return errs;
 }
 
+/** Scalar fields confirmed by an arithmetic check that holds. Twin of verified_fields. */
+export function verifiedFields(doc: ExtractedDocument): Set<FieldName> {
+  const v = (f: FieldName) => valueOf(doc, f);
+  const out = new Set<FieldName>();
+  const itemSum = doc.items.reduce((a, it) => a + (it.price ?? 0), 0);
+  const sub = v("subtotal");
+  const total = v("total");
+  if (doc.items.length && sub !== null && itemSum === sub) out.add("subtotal");
+  if (total !== null) {
+    const base = sub !== null ? sub : doc.items.length ? itemSum : null;
+    if (base !== null) {
+      const tax = v("tax") ?? 0;
+      const svc = v("service") ?? 0;
+      const disc = v("discount") ?? 0;
+      const parts: FieldName[][] = [["tax", "service", "discount"], ["tax", "service"], ["discount"], []];
+      const sums = [base + tax + svc - disc, base + tax + svc, base - disc, base];
+      for (let i = 0; i < sums.length; i++) {
+        if (total === sums[i]) {
+          out.add("total");
+          if (sub !== null) out.add("subtotal");
+          for (const f of parts[i]) if (v(f) !== null) out.add(f);
+          break;
+        }
+      }
+    }
+    const cash = v("cash");
+    const change = v("change");
+    if (cash !== null && change !== null && cash - change === total) {
+      out.add("cash");
+      out.add("change");
+      out.add("total");
+    }
+  }
+  return out;
+}
+
 export function validateDocument(doc: ExtractedDocument, minConf: number | null = null): Issue[] {
   const issues: Issue[] = [];
   const v = (f: FieldName) => valueOf(doc, f);
@@ -119,9 +155,10 @@ export function validateDocument(doc: ExtractedDocument, minConf: number | null 
   }
 
   if (minConf !== null) {
+    const proven = verifiedFields(doc);
     for (const f of SCALAR_FIELDS) {
       const sv = doc[f];
-      if (sv && sv.confidence < minConf) issues.push({ code: "LOW_CONF", message: `Keyakinan rendah: ${f}`, field: f });
+      if (sv && sv.confidence < minConf && !proven.has(f)) issues.push({ code: "LOW_CONF", message: `Keyakinan rendah: ${f}`, field: f });
     }
     doc.items.forEach((it, i) => {
       if (it.confidence < minConf)

@@ -69,6 +69,7 @@ export function pageFeatures(page: Page): string[][] {
         `region|ridx|m=${region}|${ridx}|${m}`,
         `kwp|m=${kwPrev}|${m}`,
         `head|m=${hd}|${m}`,
+        "oc=" + Math.min(Math.floor(w.conf / 20), 5),
       ];
       if (money[j]) {
         const r = Math.min(moneyRank[j], 2);

@@ -1,0 +1,626 @@
+{
+ "split": "synthetic seeds 1000-1199",
+ "note": "out-of-domain: model trained on CORD receipts only",
+ "summary": {
+  "H-ocr": {
+   "n_docs": 200,
+   "per_field": {
+    "subtotal": {
+     "tp": 169,
+     "fp": 30,
+     "fn": 31,
+     "support": 200,
+     "f1": 0.8471177944862155
+    },
+    "tax": {
+     "tp": 169,
+     "fp": 30,
+     "fn": 31,
+     "support": 200,
+     "f1": 0.8471177944862155
+    },
+    "service": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "discount": {
+     "tp": 37,
+     "fp": 7,
+     "fn": 7,
+     "support": 44,
+     "f1": 0.8409090909090909
+    },
+    "total": {
+     "tp": 193,
+     "fp": 1,
+     "fn": 7,
+     "support": 200,
+     "f1": 0.9796954314720813
+    },
+    "cash": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "change": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    }
+   },
+   "field_micro_f1": 0.8875,
+   "field_macro_f1": 0.8787100278384008,
+   "row_precision": 0.691866028708134,
+   "row_recall": 0.7492227979274612,
+   "row_f1": 0.7194029850746269,
+   "row_f1_strict": 0.3383084577114428,
+   "qty_accuracy": 0.3533678756476684,
+   "table_doc_accuracy": 0.665,
+   "doc_accuracy": 0.65,
+   "review_rate": 0.3,
+   "auto_accepted": 140,
+   "auto_accept_accuracy": 0.9285714285714286,
+   "auto_correct_share": 0.65,
+   "caught_error_share": 0.8571428571428571
+  },
+  "N-ocr": {
+   "n_docs": 200,
+   "per_field": {
+    "subtotal": {
+     "tp": 167,
+     "fp": 32,
+     "fn": 33,
+     "support": 200,
+     "f1": 0.8370927318295739
+    },
+    "tax": {
+     "tp": 174,
+     "fp": 26,
+     "fn": 26,
+     "support": 200,
+     "f1": 0.87
+    },
+    "service": {
+     "tp": 0,
+     "fp": 1,
+     "fn": 0,
+     "support": 0,
+     "f1": 0.0
+    },
+    "discount": {
+     "tp": 30,
+     "fp": 0,
+     "fn": 14,
+     "support": 44,
+     "f1": 0.8108108108108109
+    },
+    "total": {
+     "tp": 192,
+     "fp": 5,
+     "fn": 8,
+     "support": 200,
+     "f1": 0.9672544080604534
+    },
+    "cash": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "change": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    }
+   },
+   "field_micro_f1": 0.8859166011014948,
+   "field_macro_f1": 0.8712894876752095,
+   "row_precision": 0.17956989247311828,
+   "row_recall": 0.17305699481865286,
+   "row_f1": 0.1762532981530343,
+   "row_f1_strict": 0.030606860158311346,
+   "qty_accuracy": 0.04248704663212435,
+   "table_doc_accuracy": 0.02,
+   "doc_accuracy": 0.015,
+   "review_rate": 1.0,
+   "auto_accepted": 0,
+   "auto_accept_accuracy": null,
+   "auto_correct_share": 0.0,
+   "caught_error_share": 1.0
+  },
+  "H-pdf": {
+   "n_docs": 200,
+   "per_field": {
+    "subtotal": {
+     "tp": 200,
+     "fp": 0,
+     "fn": 0,
+     "support": 200,
+     "f1": 1.0
+    },
+    "tax": {
+     "tp": 200,
+     "fp": 0,
+     "fn": 0,
+     "support": 200,
+     "f1": 1.0
+    },
+    "service": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "discount": {
+     "tp": 44,
+     "fp": 0,
+     "fn": 0,
+     "support": 44,
+     "f1": 1.0
+    },
+    "total": {
+     "tp": 200,
+     "fp": 0,
+     "fn": 0,
+     "support": 200,
+     "f1": 1.0
+    },
+    "cash": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "change": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    }
+   },
+   "field_micro_f1": 1.0,
+   "field_macro_f1": 1.0,
+   "row_precision": 1.0,
+   "row_recall": 1.0,
+   "row_f1": 1.0,
+   "row_f1_strict": 1.0,
+   "qty_accuracy": 1.0,
+   "table_doc_accuracy": 1.0,
+   "doc_accuracy": 1.0,
+   "review_rate": 0.0,
+   "auto_accepted": 200,
+   "auto_accept_accuracy": 1.0,
+   "auto_correct_share": 1.0,
+   "caught_error_share": 0.0
+  },
+  "N-pdf": {
+   "n_docs": 200,
+   "per_field": {
+    "subtotal": {
+     "tp": 198,
+     "fp": 0,
+     "fn": 2,
+     "support": 200,
+     "f1": 0.9949748743718593
+    },
+    "tax": {
+     "tp": 200,
+     "fp": 0,
+     "fn": 0,
+     "support": 200,
+     "f1": 1.0
+    },
+    "service": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "discount": {
+     "tp": 43,
+     "fp": 0,
+     "fn": 1,
+     "support": 44,
+     "f1": 0.9885057471264368
+    },
+    "total": {
+     "tp": 187,
+     "fp": 0,
+     "fn": 13,
+     "support": 200,
+     "f1": 0.9664082687338501
+    },
+    "cash": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    },
+    "change": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "support": 0,
+     "f1": null
+    }
+   },
+   "field_micro_f1": 0.9874213836477987,
+   "field_macro_f1": 0.9874722225580366,
+   "row_precision": 0.2354988399071926,
+   "row_recall": 0.21036269430051813,
+   "row_f1": 0.2222222222222222,
+   "row_f1_strict": 0.13355227148330598,
+   "qty_accuracy": 0.15129533678756477,
+   "table_doc_accuracy": 0.015,
+   "doc_accuracy": 0.01,
+   "review_rate": 1.0,
+   "auto_accepted": 0,
+   "auto_accept_accuracy": null,
+   "auto_correct_share": 0.0,
+   "caught_error_share": 1.0
+  }
+ },
+ "bootstrap": {
+  "n_boot": 2000,
+  "seed": 42,
+  "ci": {
+   "H-ocr": {
+    "field_micro_f1": [
+     0.8496,
+     0.9207
+    ],
+    "field_macro_f1": [
+     0.8319,
+     0.9181
+    ],
+    "row_f1": [
+     0.6527,
+     0.7828
+    ],
+    "row_f1_strict": [
+     0.2939,
+     0.3836
+    ],
+    "table_doc_accuracy": [
+     0.6,
+     0.725
+    ],
+    "doc_accuracy": [
+     0.58,
+     0.715
+    ],
+    "review_rate": [
+     0.24,
+     0.365
+    ],
+    "auto_accept_accuracy": [
+     0.8815,
+     0.9669
+    ]
+   },
+   "N-ocr": {
+    "field_micro_f1": [
+     0.8511,
+     0.9174
+    ],
+    "field_macro_f1": [
+     0.8279,
+     0.909
+    ],
+    "row_f1": [
+     0.1384,
+     0.2147
+    ],
+    "row_f1_strict": [
+     0.0164,
+     0.0457
+    ],
+    "table_doc_accuracy": [
+     0.005,
+     0.04
+    ],
+    "doc_accuracy": [
+     0.0,
+     0.035
+    ],
+    "review_rate": [
+     1.0,
+     1.0
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   },
+   "H-pdf": {
+    "field_micro_f1": [
+     1.0,
+     1.0
+    ],
+    "field_macro_f1": [
+     1.0,
+     1.0
+    ],
+    "row_f1": [
+     1.0,
+     1.0
+    ],
+    "row_f1_strict": [
+     1.0,
+     1.0
+    ],
+    "table_doc_accuracy": [
+     1.0,
+     1.0
+    ],
+    "doc_accuracy": [
+     1.0,
+     1.0
+    ],
+    "review_rate": [
+     0.0,
+     0.0
+    ],
+    "auto_accept_accuracy": [
+     1.0,
+     1.0
+    ]
+   },
+   "N-pdf": {
+    "field_micro_f1": [
+     0.9805,
+     0.993
+    ],
+    "field_macro_f1": [
+     0.9778,
+     0.9942
+    ],
+    "row_f1": [
+     0.1921,
+     0.2541
+    ],
+    "row_f1_strict": [
+     0.1096,
+     0.1587
+    ],
+    "table_doc_accuracy": [
+     0.0,
+     0.035
+    ],
+    "doc_accuracy": [
+     0.0,
+     0.025
+    ],
+    "review_rate": [
+     1.0,
+     1.0
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   }
+  },
+  "diff": {
+   "N-ocr - H-ocr": {
+    "field_micro_f1": [
+     -0.0419,
+     0.0397
+    ],
+    "field_macro_f1": [
+     -0.0578,
+     0.0427
+    ],
+    "row_f1": [
+     -0.6197,
+     -0.4636
+    ],
+    "row_f1_strict": [
+     -0.3552,
+     -0.2602
+    ],
+    "table_doc_accuracy": [
+     -0.705,
+     -0.58
+    ],
+    "doc_accuracy": [
+     -0.7,
+     -0.57
+    ],
+    "review_rate": [
+     0.635,
+     0.76
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   },
+   "H-pdf - H-ocr": {
+    "field_micro_f1": [
+     0.0793,
+     0.1504
+    ],
+    "field_macro_f1": [
+     0.0819,
+     0.1681
+    ],
+    "row_f1": [
+     0.2172,
+     0.3473
+    ],
+    "row_f1_strict": [
+     0.6164,
+     0.7061
+    ],
+    "table_doc_accuracy": [
+     0.275,
+     0.4
+    ],
+    "doc_accuracy": [
+     0.285,
+     0.42
+    ],
+    "review_rate": [
+     -0.365,
+     -0.24
+    ],
+    "auto_accept_accuracy": [
+     0.0331,
+     0.1185
+    ]
+   },
+   "N-pdf - H-ocr": {
+    "field_micro_f1": [
+     0.0652,
+     0.1386
+    ],
+    "field_macro_f1": [
+     0.0649,
+     0.1574
+    ],
+    "row_f1": [
+     -0.5721,
+     -0.4195
+    ],
+    "row_f1_strict": [
+     -0.2577,
+     -0.1528
+    ],
+    "table_doc_accuracy": [
+     -0.71,
+     -0.585
+    ],
+    "doc_accuracy": [
+     -0.7,
+     -0.575
+    ],
+    "review_rate": [
+     0.635,
+     0.76
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   },
+   "H-pdf - N-ocr": {
+    "field_micro_f1": [
+     0.0826,
+     0.1489
+    ],
+    "field_macro_f1": [
+     0.091,
+     0.1721
+    ],
+    "row_f1": [
+     0.7853,
+     0.8616
+    ],
+    "row_f1_strict": [
+     0.9543,
+     0.9836
+    ],
+    "table_doc_accuracy": [
+     0.96,
+     0.995
+    ],
+    "doc_accuracy": [
+     0.965,
+     1.0
+    ],
+    "review_rate": [
+     -1.0,
+     -1.0
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   },
+   "N-pdf - N-ocr": {
+    "field_micro_f1": [
+     0.0689,
+     0.136
+    ],
+    "field_macro_f1": [
+     0.0783,
+     0.1588
+    ],
+    "row_f1": [
+     0.0127,
+     0.0814
+    ],
+    "row_f1_strict": [
+     0.0771,
+     0.1303
+    ],
+    "table_doc_accuracy": [
+     -0.015,
+     0.0
+    ],
+    "doc_accuracy": [
+     -0.015,
+     0.0
+    ],
+    "review_rate": [
+     0.0,
+     0.0
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   },
+   "N-pdf - H-pdf": {
+    "field_micro_f1": [
+     -0.0195,
+     -0.007
+    ],
+    "field_macro_f1": [
+     -0.0222,
+     -0.0058
+    ],
+    "row_f1": [
+     -0.8079,
+     -0.7459
+    ],
+    "row_f1_strict": [
+     -0.8904,
+     -0.8413
+    ],
+    "table_doc_accuracy": [
+     -1.0,
+     -0.965
+    ],
+    "doc_accuracy": [
+     -1.0,
+     -0.975
+    ],
+    "review_rate": [
+     1.0,
+     1.0
+    ],
+    "auto_accept_accuracy": [
+     null,
+     null
+    ]
+   }
+  }
+ }
+}

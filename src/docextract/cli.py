@@ -1,8 +1,10 @@
-"""Command line: `docextract <step>` or `docextract all`.
+"""Command line: `docextract <step>`, `docextract dev` or `docextract all`.
 
-Protocol (docs/EVALUASI.md): OCR settings, C and the review threshold are
-chosen on the validation split only; the test split is scored once with
-the frozen choices.
+Protocol v2 (docs/EVALUASI_V2.md): the OCR setting, CRF regularisation,
+the arithmetic weight lambda and the review threshold are chosen on the
+validation split only; the test split is scored once with the frozen
+choices. v1 results in evaluation/*.json are never overwritten; v2 writes
+to evaluation/v2/.
 """
 
 from __future__ import annotations
@@ -15,23 +17,28 @@ import urllib.request
 from pathlib import Path
 
 from . import pipeline as P
-from .evaluate import aggregate, bootstrap
-from .model import LinearModel, train
+from .evaluate import DocScore, aggregate, bootstrap
+from .model import CrfModel, train
+from .ocr import OcrConfig
 
 # DOCEXTRACT_OUT redirects outputs (evaluation/, web/public/model, web/public/samples).
 OUT = Path(os.environ.get("DOCEXTRACT_OUT", P.ROOT))
-EVAL = OUT / "evaluation"
+EVAL = OUT / "evaluation" / "v2"
+V1_EVAL = OUT / "evaluation"
 MODEL_PATH = OUT / "web" / "public" / "model" / "model-n.json"
 CONFIG_PATH = EVAL / "config.json"
 
-OCR_GRID = [("eng", 4), ("eng", 6), ("ind", 4), ("ind", 6), ("eng+ind", 4), ("eng+ind", 6)]
-C_GRID = [0.1, 0.3, 1.0, 3.0]
+OCR_GRID = [OcrConfig("eng+ind", psm, th, sc) for psm in (4, 6, 11) for th in (0, 1, 2) for sc in (1.0, 1.5)]
+C1_GRID = [0.0, 0.05, 0.2]
+C2_GRID = [0.01, 0.1, 1.0]
+LAM_GRID = [0.0, 0.5, 1.0, 2.0, 4.0]
+LAM_DURING_C = 1.0
 TAU_GRID = [0.0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
 
 
 def _write(path: Path, obj, compact: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if compact:  # the browser downloads the model; indentation alone adds about 2 MB
+    if compact:  # the browser downloads the model; indentation alone adds megabytes
         text = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
     else:
         text = json.dumps(obj, indent=1, ensure_ascii=False)
@@ -49,92 +56,195 @@ def _save_config(**kw) -> dict:
     return cfg
 
 
-def cmd_download(_: argparse.Namespace) -> None:
+def _ocr_cfg() -> OcrConfig:
+    return OcrConfig.from_dict(_config()["ocr"])
+
+
+def _selection_score(agg: dict) -> float:
+    return ((agg["field_micro_f1"] or 0.0) + (agg["row_f1"] or 0.0)) / 2
+
+
+def cmd_download(args: argparse.Namespace) -> None:
+    splits = ("train", "validation") if args.no_test else ("train", "validation", "test")
     P.CORD_DIR.mkdir(parents=True, exist_ok=True)
     for name in P.CORD_FILES:
+        if not name.startswith(splits):
+            continue
         target = P.CORD_DIR / name
         if target.exists():
             continue
         print("download", name)
         urllib.request.urlretrieve(P.HF_BASE + name, target)
-    for split in ("train", "validation", "test"):
+    for split in splits:
         P.cache_ground_truth(split)
     print("ground truth cached in", P.CACHE / "gt")
 
 
 def cmd_select_ocr(args: argparse.Namespace) -> None:
     rows = []
-    for lang, psm in OCR_GRID:
+    for cfg in OCR_GRID:
         t = time.time()
-        P.cache_ocr("validation", lang, psm, workers=args.workers)
-        rec = P.ocr_word_recall("validation", lang, psm)
-        rows.append({"lang": lang, "psm": psm, "word_recall": round(rec, 4), "seconds": round(time.time() - t, 1)})
+        P.cache_ocr("validation", cfg, workers=args.workers)
+        rec = P.ocr_word_recall("validation", cfg)
+        rows.append({**cfg.to_dict(), "word_recall": round(rec, 4), "seconds": round(time.time() - t, 1)})
         print(rows[-1])
-    best = max(rows, key=lambda r: r["word_recall"])
+    best = max(rows, key=lambda r: (r["word_recall"], -r["seconds"]))
+    chosen = OcrConfig.from_dict(best)
     _write(EVAL / "ocr-selection.json", {"split": "validation", "grid": rows, "chosen": best})
-    _save_config(ocr_lang=best["lang"], ocr_psm=best["psm"])
+    _save_config(ocr=chosen.to_dict())
 
 
 def cmd_ocr(args: argparse.Namespace) -> None:
-    cfg = _config()
+    cfg = _ocr_cfg()
     for split in args.splits:
         t = time.time()
-        P.cache_ocr(split, cfg["ocr_lang"], cfg["ocr_psm"], workers=args.workers)
+        P.cache_ocr(split, cfg, workers=args.workers)
         print(split, f"{time.time() - t:.0f}s")
 
 
-def _train_pages(cfg: dict):
+def _train_pages(cfg: OcrConfig):
     pages, gold = [], []
     for rec in P.load_gt("train"):
-        for page in (P.ocr_page(rec, cfg["ocr_lang"], cfg["ocr_psm"], labelled=True), P.gt_page(rec)):
+        for page in (P.ocr_page(rec, cfg, labelled=True), P.gt_page(rec)):
             pages.append(page)
             gold.append([w.label for w in page.words])
     return pages, gold
 
 
+def _val(model: CrfModel | None, cfg: OcrConfig, lam: float, tau: float | None = None, approach: str = "N"):
+    scores, _ = P.run_split("validation", approach, "ocr", cfg, model, min_conf=tau, lam=lam)
+    return scores
+
+
 def cmd_train(_: argparse.Namespace) -> None:
-    cfg = _config()
+    cfg = _ocr_cfg()
     pages, gold = _train_pages(cfg)
-    rows = []
+    c_rows = []
     best = None
-    for c in C_GRID:
-        model = train(pages, gold, c=c)
-        model = LinearModel(**{k: v for k, v in model.to_json().items()})  # exported, rounded weights
-        scores, _ = P.run_split("validation", "N", "ocr", cfg["ocr_lang"], cfg["ocr_psm"], model)
-        agg = aggregate(scores)
-        sel = (agg["field_micro_f1"] + agg["row_f1"]) / 2
-        rows.append({"C": c, "field_micro_f1": agg["field_micro_f1"], "row_f1": agg["row_f1"], "selection_score": sel})
-        print(rows[-1])
-        if best is None or sel > best[0]:
-            best = (sel, c, model)
+    for c1 in C1_GRID:
+        for c2 in C2_GRID:
+            t = time.time()
+            model = CrfModel.from_json(train(pages, gold, c1=c1, c2=c2).to_json())  # exported, rounded weights
+            agg = aggregate(_val(model, cfg, LAM_DURING_C))
+            sel = _selection_score(agg)
+            c_rows.append(
+                {
+                    "c1": c1,
+                    "c2": c2,
+                    "field_micro_f1": agg["field_micro_f1"],
+                    "row_f1": agg["row_f1"],
+                    "selection_score": sel,
+                    "n_state_features": model.meta["n_state_features"],
+                    "seconds": round(time.time() - t, 1),
+                }
+            )
+            print(c_rows[-1])
+            if best is None or sel > best[0]:
+                best = (sel, model)
     assert best is not None
-    _, c, model = best
-    tau_rows = []
-    for tau in TAU_GRID:
-        scores, _ = P.run_split("validation", "N", "ocr", cfg["ocr_lang"], cfg["ocr_psm"], model, min_conf=tau)
-        auto = [s for s in scores if not s.routed]
-        right = sum(s.doc_correct for s in auto)
-        wrong = len(auto) - right
-        tau_rows.append(
-            {"tau": tau, "auto": len(auto), "auto_right": right, "auto_wrong": wrong, "utility": right - 2 * wrong}
+    model = best[1]
+
+    lam_rows = []
+    for lam in LAM_GRID:
+        agg = aggregate(_val(model, cfg, lam))
+        lam_rows.append(
+            {
+                "lambda": lam,
+                "field_micro_f1": agg["field_micro_f1"],
+                "row_f1": agg["row_f1"],
+                "selection_score": _selection_score(agg),
+            }
         )
-    tau = max(tau_rows, key=lambda r: (r["utility"], -r["tau"]))["tau"]
-    model.meta["review_min_conf"] = tau
-    model.meta["ocr"] = {"lang": cfg["ocr_lang"], "psm": cfg["ocr_psm"]}
+        print(lam_rows[-1])
+    lam = max(lam_rows, key=lambda r: (r["selection_score"], -r["lambda"]))["lambda"]
+
+    tau, tau_rows = _tau_rows(model, cfg, lam)
+
+    model.meta.update(review_min_conf=tau, assemble_lambda=lam, ocr=cfg.to_dict(), protocol="v2")
     _write(MODEL_PATH, model.to_json(), compact=True)
     _write(
         EVAL / "model-selection.json",
-        {"split": "validation", "C_grid": rows, "chosen_C": c, "tau_grid": tau_rows, "chosen_tau": tau},
+        {
+            "split": "validation",
+            "crf_grid": c_rows,
+            "chosen": {"c1": model.meta["c1"], "c2": model.meta["c2"]},
+            "lambda_grid": lam_rows,
+            "chosen_lambda": lam,
+            "tau_grid": tau_rows,
+            "chosen_tau": tau,
+        },
     )
-    _save_config(C=c, tau=tau)
-    print("model ->", MODEL_PATH, "C", c, "tau", tau)
+    _save_config(c1=model.meta["c1"], c2=model.meta["c2"], lam=lam, tau=tau)
+    print("model ->", MODEL_PATH, "c1", model.meta["c1"], "c2", model.meta["c2"], "lambda", lam, "tau", tau)
+
+
+TRANSFORMER_DIR = P.CACHE / "layoutlm"
+
+
+def _tau_rows(model, cfg: OcrConfig, lam: float) -> tuple[float, list[dict]]:
+    rows = []
+    for tau in TAU_GRID:
+        scores = _val(model, cfg, lam, tau)
+        auto = [s for s in scores if not s.routed]
+        right = sum(s.doc_correct for s in auto)
+        wrong = len(auto) - right
+        rows.append(
+            {"tau": tau, "auto": len(auto), "auto_right": right, "auto_wrong": wrong, "utility": right - 2 * wrong}
+        )
+    return max(rows, key=lambda r: (r["utility"], -r["tau"]))["tau"], rows
+
+
+def cmd_train_transformer(args: argparse.Namespace) -> None:
+    """Research comparison T (LayoutLM), Python only. Epoch and review threshold chosen on validation."""
+    from .transformer import train_layoutlm
+
+    cfg = _ocr_cfg()
+    lam = _config()["lam"]  # the assembler setting chosen for N
+    pages, gold = _train_pages(cfg)
+
+    def select(tagger) -> float:
+        return _selection_score(aggregate(_val(tagger, cfg, lam)))
+
+    tagger, history = train_layoutlm(pages, gold, select, epochs=args.epochs)
+    tau, tau_rows = _tau_rows(tagger, cfg, lam)
+    TRANSFORMER_DIR.mkdir(parents=True, exist_ok=True)
+    tagger.model.save_pretrained(TRANSFORMER_DIR)
+    tagger.tokenizer.save_pretrained(TRANSFORMER_DIR)
+    _write(
+        EVAL / "transformer-selection.json",
+        {"split": "validation", "meta": tagger.meta, "epochs": history, "tau_grid": tau_rows, "chosen_tau": tau},
+    )
+    _save_config(transformer={"tau": tau, "chosen_epoch": tagger.meta["chosen_epoch"]})
+    print("transformer -> epoch", tagger.meta["chosen_epoch"], "tau", tau)
+
+
+def _load_transformer():
+    t = _config().get("transformer")
+    if not t or not TRANSFORMER_DIR.exists():
+        return None, None
+    from transformers import LayoutLMForTokenClassification, LayoutLMTokenizerFast
+
+    from .transformer import LayoutLMTagger
+
+    model = LayoutLMForTokenClassification.from_pretrained(TRANSFORMER_DIR)
+    return LayoutLMTagger(model, LayoutLMTokenizerFast.from_pretrained(TRANSFORMER_DIR)), t["tau"]
+
+
+def _load_v1(split: str) -> dict[str, list[DocScore]]:
+    """v1 per-document scores on the same documents, for paired v2 - v1 differences."""
+    path = V1_EVAL / f"per-doc-{split}.json"
+    if not path.exists():
+        return {}
+    d = json.loads(path.read_text())
+    return {f"{k}-v1": [DocScore(**x) for x in d[k]] for k in ("H-ocr", "N-ocr") if k in d}
 
 
 def cmd_evaluate(args: argparse.Namespace) -> None:
-    cfg = _config()
-    model = LinearModel.load(MODEL_PATH)
-    tau = model.meta["review_min_conf"]
+    cfg = _ocr_cfg()
+    model = CrfModel.load(MODEL_PATH)
+    tau, lam = model.meta["review_min_conf"], model.meta["assemble_lambda"]
     runs, preds = {}, {}
+    v1 = _load_v1(args.split)
     for name, approach, source in (
         ("H-ocr", "H", "ocr"),
         ("N-ocr", "N", "ocr"),
@@ -145,20 +255,39 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
             args.split,
             approach,
             source,
-            cfg["ocr_lang"],
-            cfg["ocr_psm"],
+            cfg,
             model,
             min_conf=tau if approach == "N" else None,
+            lam=lam,
             keep_predictions=True,
         )
         runs[name], preds[name] = scores, pr
-    summary = {name: aggregate(s) for name, s in runs.items()}
-    boot = bootstrap(runs, n_boot=args.n_boot)
+    tmodel, ttau = _load_transformer()
+    if tmodel is not None:
+        for name, source in (("T-ocr", "ocr"), ("T-gt", "gt")):
+            scores, pr = P.run_split(
+                args.split, "N", source, cfg, tmodel, min_conf=ttau, lam=lam, keep_predictions=True
+            )
+            runs[name], preds[name] = scores, pr
+    if v1 and [s.doc_id for s in next(iter(v1.values()))] == [s.doc_id for s in runs["H-ocr"]]:
+        all_runs = {**v1, **runs}
+    else:
+        all_runs = runs
+    summary = {name: aggregate(s) for name, s in all_runs.items()}
+    boot = bootstrap(all_runs, n_boot=args.n_boot)
     out = {
         "split": args.split,
+        "protocol": "v2 (docs/EVALUASI_V2.md)",
         "dataset": "naver-clova-ix/cord-v2 (CC BY 4.0)",
-        "ocr": {"engine": "tesseract (native)", "lang": cfg["ocr_lang"], "psm": cfg["ocr_psm"]},
-        "model": {"C": model.meta["C"], "review_min_conf": tau, "n_features": model.meta["n_features"]},
+        "ocr": {"engine": "tesseract (native)", **cfg.to_dict()},
+        "model": {
+            "type": "crf",
+            "c1": model.meta["c1"],
+            "c2": model.meta["c2"],
+            "assemble_lambda": lam,
+            "review_min_conf": tau,
+            "n_state_features": model.meta["n_state_features"],
+        },
         "summary": summary,
         "bootstrap": boot,
     }
@@ -177,19 +306,14 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
 
 
 def cmd_synth(args: argparse.Namespace) -> None:
-    from .assemble import assemble
     from .evaluate import score_document
-    from .heuristic import label_page
     from .layout import Word, group_lines
-    from .schema import validate_document
     from .synth_eval import build_cache, gt_of
 
-    cfg = _config()
-    model = LinearModel.load(MODEL_PATH)
-    tau = model.meta["review_min_conf"]
-    recs = build_cache(
-        P.CACHE / "synth", range(args.start, args.start + args.n), P.ensure_tessdata(), cfg["ocr_lang"], cfg["ocr_psm"]
-    )
+    cfg = _ocr_cfg()
+    model = CrfModel.load(MODEL_PATH)
+    tau, lam = model.meta["review_min_conf"], model.meta["assemble_lambda"]
+    recs = build_cache(P.CACHE / "synth", range(args.start, args.start + args.n), P.ensure_tessdata(), cfg)
     runs = {}
     for source in ("ocr", "pdf"):
         for approach in ("H", "N"):
@@ -198,15 +322,7 @@ def cmd_synth(args: argparse.Namespace) -> None:
                 words = [Word.from_dict(d) for d in rec[f"{source}_words"]]
                 w, h = (rec["width"], rec["height"]) if source == "ocr" else rec["pdf_size"]
                 page = group_lines(words, w, h)
-                if approach == "H":
-                    labels = label_page(page)
-                    probs = [1.0] * len(labels)
-                    doc = assemble(page, labels, probs)
-                    issues = validate_document(doc)
-                else:
-                    labels, probs = model.predict_page(page)
-                    doc = assemble(page, labels, probs)
-                    issues = validate_document(doc, min_conf=tau)
+                doc, issues, _, _ = P.extract(page, approach, model, tau if approach == "N" else None, lam)
                 scores.append(score_document(rec["doc_id"], doc, gt_of(rec), rec["alts"], [i.code for i in issues]))
             runs[f"{approach}-{source}"] = scores
     summary = {k: aggregate(v) for k, v in runs.items()}
@@ -280,23 +396,48 @@ def cmd_export_web(args: argparse.Namespace) -> None:
                 }
             )
     _write(sdir / "index.json", samples)
-    ddir = pub / "data"
+    ddir = pub / "data" / "v2"  # v1 copies stay in web/public/data/
     ddir.mkdir(parents=True, exist_ok=True)
-    for name in ("results-test.json", "results-synth.json", "model-selection.json", "ocr-selection.json"):
+    for name in (
+        "results-test.json",
+        "results-synth.json",
+        "model-selection.json",
+        "ocr-selection.json",
+        "transformer-selection.json",
+    ):
         src = EVAL / name
         if src.exists():
             shutil.copy(src, ddir / name)
     print("samples:", len(samples), "->", sdir)
 
 
+def cmd_dev(args: argparse.Namespace) -> None:
+    """Development run on train + validation only. The test split cannot be read here."""
+    os.environ["DOCEXTRACT_NO_TEST"] = "1"
+    ns = argparse.Namespace
+    if not args.skip_download:
+        cmd_download(ns(no_test=True))
+    if args.skip_ocr_grid and CONFIG_PATH.exists():
+        print("OCR setting kept:", _config()["ocr"])
+    else:
+        cmd_select_ocr(ns(workers=args.workers))
+    cmd_ocr(ns(splits=["train", "validation"], workers=args.workers))
+    cmd_train(ns())
+    if args.with_transformer:
+        cmd_train_transformer(ns(epochs=args.epochs))
+    cmd_evaluate(ns(split="validation", n_boot=args.n_boot))
+
+
 def cmd_all(args: argparse.Namespace) -> None:
     """Full protocol in order. The test split is scored once, after every choice is frozen."""
     ns = argparse.Namespace
     if not args.skip_download:
-        cmd_download(ns())
+        cmd_download(ns(no_test=False))
     cmd_select_ocr(ns(workers=args.workers))
     cmd_ocr(ns(splits=["train", "validation", "test"], workers=args.workers))
     cmd_train(ns())
+    if args.with_transformer:
+        cmd_train_transformer(ns(epochs=args.epochs))
     cmd_evaluate(ns(split="validation", n_boot=args.n_boot))
     cmd_evaluate(ns(split="test", n_boot=args.n_boot))
     cmd_synth(ns(start=1000, n=args.n_synth, n_boot=args.n_boot))
@@ -306,7 +447,9 @@ def cmd_all(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="docextract")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("download").set_defaults(fn=cmd_download)
+    p = sub.add_parser("download")
+    p.add_argument("--no-test", action="store_true")
+    p.set_defaults(fn=cmd_download)
     p = sub.add_parser("select-ocr")
     p.add_argument("--workers", type=int, default=4)
     p.set_defaults(fn=cmd_select_ocr)
@@ -315,6 +458,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--workers", type=int, default=4)
     p.set_defaults(fn=cmd_ocr)
     sub.add_parser("train").set_defaults(fn=cmd_train)
+    p = sub.add_parser("train-transformer")
+    p.add_argument("--epochs", type=int, default=4)
+    p.set_defaults(fn=cmd_train_transformer)
     p = sub.add_parser("evaluate")
     p.add_argument("--split", default="validation", choices=["validation", "test"])
     p.add_argument("--n-boot", type=int, default=2000)
@@ -329,11 +475,21 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--n-cord", type=int, default=4)
     p.add_argument("--no-cord", dest="cord", action="store_false")
     p.set_defaults(fn=cmd_export_web)
+    p = sub.add_parser("dev")
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--n-boot", type=int, default=200)
+    p.add_argument("--skip-download", action="store_true")
+    p.add_argument("--skip-ocr-grid", action="store_true")
+    p.add_argument("--with-transformer", action="store_true")
+    p.add_argument("--epochs", type=int, default=4)
+    p.set_defaults(fn=cmd_dev)
     p = sub.add_parser("all")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--n-synth", type=int, default=200)
     p.add_argument("--skip-download", action="store_true")
+    p.add_argument("--with-transformer", action="store_true")
+    p.add_argument("--epochs", type=int, default=4)
     p.set_defaults(fn=cmd_all)
     args = ap.parse_args(argv)
     args.fn(args)

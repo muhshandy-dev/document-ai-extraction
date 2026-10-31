@@ -59,8 +59,51 @@ class Issue(BaseModel):
     field: str | None = None
 
 
+def verified_fields(doc: ExtractedDocument) -> set[str]:
+    """Scalar fields whose value is confirmed by an arithmetic check that holds.
+
+    - items sum == subtotal confirms subtotal;
+    - total == one of the accepted sums confirms total and the parts used in that sum;
+    - cash - change == total confirms cash, change and total.
+    Item names are never confirmed this way.
+    """
+    v = doc.scalar_values()
+    out: set[str] = set()
+    item_sum = sum(it.price or 0 for it in doc.items)
+    sub, total = v["subtotal"], v["total"]
+    if doc.items and sub is not None and item_sum == sub:
+        out.add("subtotal")
+    if total is not None:
+        base = sub if sub is not None else (item_sum if doc.items else None)
+        if base is not None:
+            tax, svc, disc = v["tax"] or 0, v["service"] or 0, v["discount"] or 0
+            parts = (
+                ("tax", "service", "discount"),
+                ("tax", "service"),
+                ("discount",),
+                (),
+            )
+            sums = (base + tax + svc - disc, base + tax + svc, base - disc, base)
+            for used, value in zip(parts, sums, strict=True):
+                if total == value:
+                    out.add("total")
+                    if sub is not None:
+                        out.add("subtotal")
+                    out.update(f for f in used if v[f] is not None)
+                    break
+        cash, change = v["cash"], v["change"]
+        if cash is not None and change is not None and cash - change == total:
+            out.update(("cash", "change", "total"))
+    return out
+
+
 def validate_document(doc: ExtractedDocument, min_conf: float | None = None) -> list[Issue]:
-    """Business-rule checks. `min_conf` is only used for the trained extractor."""
+    """Business-rule checks. `min_conf` is only used for the trained extractor.
+
+    v2: a field below `min_conf` is not flagged when an arithmetic check
+    confirms its value (see verified_fields). Items are flagged when their
+    name confidence is below `min_conf`.
+    """
     issues: list[Issue] = []
     v = doc.scalar_values()
     total = v["total"]
@@ -116,9 +159,10 @@ def validate_document(doc: ExtractedDocument, min_conf: float | None = None) -> 
             issues.append(Issue(code="CASH_SHORT", message="Uang tunai lebih kecil dari total", field="cash"))
 
     if min_conf is not None:
+        proven = verified_fields(doc)
         for f in SCALAR_FIELDS:
             sv = getattr(doc, f)
-            if sv is not None and sv.confidence < min_conf:
+            if sv is not None and sv.confidence < min_conf and f not in proven:
                 issues.append(Issue(code="LOW_CONF", message=f"Keyakinan rendah: {f}", field=f))
         for i, it in enumerate(doc.items):
             if it.confidence < min_conf:

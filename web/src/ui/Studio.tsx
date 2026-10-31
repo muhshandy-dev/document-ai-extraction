@@ -34,7 +34,7 @@ interface Props {
   model: ModelJson | null;
 }
 
-const DEFAULT_OCR = { lang: "eng", psm: 4 };
+const DEFAULT_OCR = { lang: "eng+ind", psm: 6, thresh: 0, scale: 1 };
 
 function canvasUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) =>
@@ -59,8 +59,13 @@ export function Studio({ samples, model }: Props) {
   }, [model, approach]);
 
   const ocrSettings = useMemo(() => {
-    const o = model?.meta?.ocr as { lang?: string; psm?: number } | undefined;
-    return { lang: o?.lang ?? DEFAULT_OCR.lang, psm: o?.psm ?? DEFAULT_OCR.psm };
+    const o = model?.meta?.ocr;
+    return {
+      lang: o?.lang ?? DEFAULT_OCR.lang,
+      psm: o?.psm ?? DEFAULT_OCR.psm,
+      thresh: o?.thresh ?? DEFAULT_OCR.thresh,
+      scale: o?.scale ?? DEFAULT_OCR.scale,
+    };
   }, [model]);
   const lowConf = model?.meta.review_min_conf ?? 0.5;
 
@@ -92,7 +97,7 @@ export function Studio({ samples, model }: Props) {
         const words = usePdfText
           ? textWords
           : await ocrCanvas(canvas, ocrSettings, (p, status) => setProgress({ p, status }));
-        const emptyModel: ModelJson = { labels: ["O"], bias: [0], weights: {}, meta: {} };
+        const emptyModel: ModelJson = { type: "crf", labels: ["O"], weights: {}, trans: [[0]], meta: {} };
         const extraction = extract(words, canvas.width, canvas.height, usePdfText ? "pdf" : "ocr", model ?? emptyModel);
         patch(doc.id, {
           state: "ready",

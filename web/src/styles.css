@@ -914,3 +914,14 @@ table.data caption {
   font-size: 15px;
   margin: 12px 0 6px;
 }
+
+.eval-version {
+  margin-top: 32px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.eval-version h4 {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "document-ai-extraction"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ekstraksi field dan tabel dari struk/faktur: heuristik vs OCR + NLP terlatih"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -15,11 +15,14 @@ dependencies = [
   "pyarrow>=15",
   "numpy>=1.26",
   "scikit-learn>=1.4",
+  "python-crfsuite>=0.9.10",
   "reportlab>=4",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+# research comparison T (LayoutLM); install torch from the CPU index first
+transformer = ["torch>=2.4", "transformers>=4.44"]
 
 [project.scripts]
 docextract = "docextract.cli:main"

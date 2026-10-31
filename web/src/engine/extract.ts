@@ -2,8 +2,8 @@
 import { type Assembled, assemble } from "../core/assemble";
 import { labelPage } from "../core/heuristic";
 import { type Page, type Word, groupLines, pageWords } from "../core/layout";
-import { type ModelJson, predictPage } from "../core/model";
-import { type Issue, validateDocument } from "../core/schema";
+import { type ModelJson, fieldProbs, predictPage } from "../core/model";
+import { type Issue, SCALAR_FIELDS, validateDocument } from "../core/schema";
 
 export type Approach = "N" | "H";
 
@@ -33,9 +33,10 @@ export function extract(
   const ordered = pageWords(page);
   const hLabels = labelPage(page);
   const hProbs = hLabels.map(() => 1);
-  const h = assemble(page, hLabels, hProbs);
+  const lam = model.meta.assemble_lambda ?? 0;
+  const h = assemble(page, hLabels, hProbs, lam);
   const n = predictPage(model, page);
-  const nAsm = assemble(page, n.labels, n.probs);
+  const nAsm = assemble(page, n.labels, n.probs, lam, fieldProbs(model.labels, n.dist, SCALAR_FIELDS));
   const tau = model.meta.review_min_conf ?? 0.5;
   return {
     page,

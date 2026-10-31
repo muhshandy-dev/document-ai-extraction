@@ -6,7 +6,9 @@ order is used so both languages give identical groupings.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+
+from .text import fix_ocr_token
 
 
 @dataclass
@@ -82,15 +84,19 @@ def _overlap(a0: float, a1: float, b0: float, b1: float) -> float:
 def group_lines(words: list[Word], width: float, height: float) -> Page:
     """Greedy vertical-overlap clustering of words into text lines.
 
+    Amounts misread with look-alike letters are repaired first (fix_ocr_token).
     A word joins the recent line whose y-band overlaps it the most, if the
     overlap covers at least MIN_OVERLAP of the smaller height. The band is
     the running mean of member tops and bottoms, so slightly skewed rows
     still group together without one tall word swallowing two rows.
     """
-    order = sorted(
-        (w for w in words if w.text.strip()),
-        key=lambda w: (w.yc, w.x0),
-    )
+    fixed = []
+    for w in words:
+        if not w.text.strip():
+            continue
+        t = fix_ocr_token(w.text)
+        fixed.append(w if t == w.text else replace(w, text=t))
+    order = sorted(fixed, key=lambda w: (w.yc, w.x0))
     lines: list[Line] = []
     sums: list[list[float]] = []  # per line: [sum_y0, sum_y1, n]
     for w in order:

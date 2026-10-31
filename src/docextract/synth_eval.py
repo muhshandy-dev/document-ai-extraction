@@ -19,7 +19,7 @@ from html import unescape
 from pathlib import Path
 
 from .layout import Word
-from .ocr import ocr_image
+from .ocr import OcrConfig, ocr_image
 from .schema import SCALAR_FIELDS, ExtractedDocument
 from .synth import make_invoice, render_pdf
 
@@ -59,7 +59,7 @@ def pdf_text_words(pdf: Path) -> tuple[list[Word], float, float]:
     return words, pw * PT_TO_PX, ph * PT_TO_PX
 
 
-def build_cache(out_dir: Path, seeds: range, tessdata: Path, lang: str, psm: int) -> list[dict]:
+def build_cache(out_dir: Path, seeds: range, tessdata: Path, cfg: OcrConfig) -> list[dict]:
     """Render, OCR and store each invoice once. Returns records like load_gt()."""
     from PIL import Image
 
@@ -67,7 +67,7 @@ def build_cache(out_dir: Path, seeds: range, tessdata: Path, lang: str, psm: int
     recs = []
     for seed in seeds:
         name = f"faktur-{seed:04d}"
-        cache = out_dir / f"{name}.json"
+        cache = out_dir / cfg.key / f"{name}.json"
         if cache.exists():
             recs.append(json.loads(cache.read_text()))
             continue
@@ -77,7 +77,7 @@ def build_cache(out_dir: Path, seeds: range, tessdata: Path, lang: str, psm: int
         img = scan_image(pdf, seed)
         with Image.open(io.BytesIO(img)) as im:
             w, h = im.size
-        ocr_words = ocr_image(img, lang=lang, psm=psm, tessdata_dir=tessdata)
+        ocr_words = ocr_image(img, cfg.lang, cfg.psm, tessdata, cfg.thresh, cfg.scale)
         pdf_words, pw, ph = pdf_text_words(pdf)
         rec = {
             "doc_id": name,
@@ -89,6 +89,7 @@ def build_cache(out_dir: Path, seeds: range, tessdata: Path, lang: str, psm: int
             "doc": doc.model_dump(mode="json"),
             "alts": {f: [doc.value(f)] for f in SCALAR_FIELDS if doc.value(f) is not None},
         }
+        cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(rec))
         pdf.unlink()
         recs.append(rec)
