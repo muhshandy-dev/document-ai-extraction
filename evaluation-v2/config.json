@@ -1,0 +1,16 @@
+{
+ "ocr": {
+  "lang": "eng+ind",
+  "psm": 11,
+  "thresh": 2,
+  "scale": 1.0
+ },
+ "c1": 0.05,
+ "c2": 0.1,
+ "lam": 0.0,
+ "tau": 0.95,
+ "transformer": {
+  "tau": 0.9,
+  "chosen_epoch": 4
+ }
+}

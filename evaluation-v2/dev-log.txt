@@ -1,0 +1,64 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+ground truth cached in /home/runner/work/document-ai-extraction/document-ai-extraction/data/cache/gt
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 0, 'scale': 1.0, 'word_recall': 0.3623, 'seconds': 0.3}
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 0, 'scale': 1.5, 'word_recall': 0.3719, 'seconds': 0.4}
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 1, 'scale': 1.0, 'word_recall': 0.0965, 'seconds': 0.3}
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 1, 'scale': 1.5, 'word_recall': 0.0801, 'seconds': 0.3}
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 2, 'scale': 1.0, 'word_recall': 0.4135, 'seconds': 0.3}
+{'lang': 'eng+ind', 'psm': 4, 'thresh': 2, 'scale': 1.5, 'word_recall': 0.4149, 'seconds': 0.4}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 0, 'scale': 1.0, 'word_recall': 0.4337, 'seconds': 0.5}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 0, 'scale': 1.5, 'word_recall': 0.4314, 'seconds': 0.6}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 1, 'scale': 1.0, 'word_recall': 0.2182, 'seconds': 1.4}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 1, 'scale': 1.5, 'word_recall': 0.2237, 'seconds': 2.5}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 2, 'scale': 1.0, 'word_recall': 0.4478, 'seconds': 0.7}
+{'lang': 'eng+ind', 'psm': 6, 'thresh': 2, 'scale': 1.5, 'word_recall': 0.4286, 'seconds': 1.3}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 0, 'scale': 1.0, 'word_recall': 0.4236, 'seconds': 0.4}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 0, 'scale': 1.5, 'word_recall': 0.4273, 'seconds': 0.5}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 1, 'scale': 1.0, 'word_recall': 0.344, 'seconds': 0.8}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 1, 'scale': 1.5, 'word_recall': 0.322, 'seconds': 1.6}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 2, 'scale': 1.0, 'word_recall': 0.4488, 'seconds': 0.5}
+{'lang': 'eng+ind', 'psm': 11, 'thresh': 2, 'scale': 1.5, 'word_recall': 0.4195, 'seconds': 0.7}
+train 1s
+validation 0s
+{'c1': 0.0, 'c2': 0.01, 'field_micro_f1': 0.5383304940374787, 'row_f1': 0.3238095238095238, 'selection_score': 0.4310700089235012, 'n_state_features': 84531, 'seconds': 42.5}
+{'c1': 0.0, 'c2': 0.1, 'field_micro_f1': 0.5427631578947368, 'row_f1': 0.33653846153846156, 'selection_score': 0.4396508097165992, 'n_state_features': 84525, 'seconds': 42.5}
+{'c1': 0.0, 'c2': 1.0, 'field_micro_f1': 0.535031847133758, 'row_f1': 0.3269230769230769, 'selection_score': 0.43097746202841747, 'n_state_features': 83658, 'seconds': 41.5}
+{'c1': 0.05, 'c2': 0.01, 'field_micro_f1': 0.5472636815920398, 'row_f1': 0.3247058823529412, 'selection_score': 0.43598478197249046, 'n_state_features': 25824, 'seconds': 37.7}
+{'c1': 0.05, 'c2': 0.1, 'field_micro_f1': 0.5463414634146342, 'row_f1': 0.3333333333333333, 'selection_score': 0.4398373983739837, 'n_state_features': 36553, 'seconds': 43.4}
+{'c1': 0.05, 'c2': 1.0, 'field_micro_f1': 0.535031847133758, 'row_f1': 0.3157894736842105, 'selection_score': 0.42541066040898423, 'n_state_features': 48499, 'seconds': 51.2}
+{'c1': 0.2, 'c2': 0.01, 'field_micro_f1': 0.548440065681445, 'row_f1': 0.3182897862232779, 'selection_score': 0.4333649259523614, 'n_state_features': 17254, 'seconds': 37.7}
+{'c1': 0.2, 'c2': 0.1, 'field_micro_f1': 0.5436893203883495, 'row_f1': 0.33093525179856115, 'selection_score': 0.4373122860934553, 'n_state_features': 23451, 'seconds': 38.3}
+{'c1': 0.2, 'c2': 1.0, 'field_micro_f1': 0.536741214057508, 'row_f1': 0.32057416267942584, 'selection_score': 0.4286576883684669, 'n_state_features': 33427, 'seconds': 45.4}
+{'lambda': 0.0, 'field_micro_f1': 0.55, 'row_f1': 0.3333333333333333, 'selection_score': 0.44166666666666665}
+{'lambda': 0.5, 'field_micro_f1': 0.5495934959349593, 'row_f1': 0.3333333333333333, 'selection_score': 0.4414634146341463}
+{'lambda': 1.0, 'field_micro_f1': 0.5463414634146342, 'row_f1': 0.3333333333333333, 'selection_score': 0.4398373983739837}
+{'lambda': 2.0, 'field_micro_f1': 0.5495934959349593, 'row_f1': 0.3333333333333333, 'selection_score': 0.4414634146341463}
+{'lambda': 4.0, 'field_micro_f1': 0.5495934959349593, 'row_f1': 0.3333333333333333, 'selection_score': 0.4414634146341463}
+model -> /home/runner/work/document-ai-extraction/document-ai-extraction/web/public/model/model-n.json c1 0.05 c2 0.1 lambda 0.0 tau 0.95
+Loading weights:   0%|          | 0/203 [00:00<?, ?it/s]Loading weights: 100%|██████████| 203/203 [00:00<00:00, 3893.35it/s]
+[transformers] [1mLayoutLMForTokenClassification LOAD REPORT[0m from: microsoft/layoutlm-base-uncased
+Key               | Status  | 
+------------------+---------+-
+classifier.bias   | MISSING | 
+classifier.weight | MISSING | 
+
+Notes:
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+/home/runner/work/document-ai-extraction/document-ai-extraction/src/docextract/transformer.py:169: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  total += float(out.loss)
+{'epoch': 1, 'train_loss': 0.7496, 'selection_score': 0.42567878696500827}
+{'epoch': 2, 'train_loss': 0.1923, 'selection_score': 0.4477245474790156}
+{'epoch': 3, 'train_loss': 0.1186, 'selection_score': 0.4583189065308074}
+{'epoch': 4, 'train_loss': 0.0776, 'selection_score': 0.4625781353903444}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  8.48it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  8.46it/s]
+transformer -> epoch 4 tau 0.9
+Loading weights:   0%|          | 0/205 [00:00<?, ?it/s]Loading weights: 100%|██████████| 205/205 [00:00<00:00, 3772.58it/s]
+H-ocr-v1 fieldF1=0.432 rowF1=0.278 tabel=0.10 review=0.84 auto_acc=0.1875
+N-ocr-v1 fieldF1=0.514 rowF1=0.323 tabel=0.16 review=0.99 auto_acc=1.0
+H-ocr fieldF1=0.423 rowF1=0.268 tabel=0.15 review=0.85 auto_acc=0.4
+N-ocr fieldF1=0.550 rowF1=0.333 tabel=0.17 review=0.92 auto_acc=0.75
+H-gt fieldF1=0.852 rowF1=0.726 tabel=0.56 review=0.41 auto_acc=0.5254237288135594
+N-gt fieldF1=0.949 rowF1=0.775 tabel=0.76 review=0.45 auto_acc=0.9636363636363636
+T-ocr fieldF1=0.551 rowF1=0.374 tabel=0.21 review=0.83 auto_acc=0.5882352941176471
+T-gt fieldF1=0.966 rowF1=0.833 tabel=0.81 review=0.32 auto_acc=0.9705882352941176
